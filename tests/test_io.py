@@ -8,7 +8,12 @@ from rss_archiveorg.models import SiteResult, SnapshotInfo
 
 def test_normalize_site_url_accepts_http_and_https():
     assert normalize_site_url("https://example.com") == "https://example.com"
-    assert normalize_site_url("http://example.com/path") == "http://example.com/path"
+    assert normalize_site_url("http://example.com/path") == "https://example.com/path"
+
+
+def test_normalize_site_url_accepts_bare_domain():
+    assert normalize_site_url("omicshealth.es") == "https://omicshealth.es"
+    assert normalize_site_url("www.example.com/about") == "https://www.example.com/about"
 
 
 def test_normalize_site_url_rejects_other_schemes():

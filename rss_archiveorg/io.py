@@ -10,15 +10,29 @@ from typing import IO, Iterable, Mapping, Any
 from urllib.parse import urlparse
 
 from .models import SiteResult
+from .utils import normalize_url
 
 
 def normalize_site_url(raw: str) -> str:
-    """Validate and return a site URL restricted to HTTP(S)."""
+    """Validate and return a site URL restricted to HTTP(S).
+
+    Bare domains such as ``example.com`` are accepted and normalized to
+    ``https://example.com``.
+    """
     url = raw.strip()
-    parsed = urlparse(url)
+    if not url:
+        raise ValueError(f"invalid site URL {raw!r}; expected http(s)://host")
+
+    if "://" in url:
+        scheme = urlparse(url).scheme
+        if scheme not in {"http", "https"}:
+            raise ValueError(f"invalid site URL {raw!r}; expected http(s)://host")
+
+    normalized = normalize_url(url)
+    parsed = urlparse(normalized)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise ValueError(f"invalid site URL {url!r}; expected http(s)://host")
-    return url
+        raise ValueError(f"invalid site URL {raw!r}; expected http(s)://host")
+    return normalized
 
 
 def read_sites(path: Path) -> list[str]:
