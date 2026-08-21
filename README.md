@@ -5,7 +5,23 @@ Extractor de RRSS (redes sociales) de un listado de webs usando [archive.org](ht
 Given a list of websites, this tool looks up the closest snapshot of each site in the
 Internet Archive Wayback Machine, downloads the archived page, and extracts links to
 social networks (RRSS) such as Facebook, Twitter/X, Instagram, LinkedIn, YouTube,
-TikTok and more.
+TikTok and more. It also extracts corporate email addresses when present.
+
+## Landing web (MVP)
+
+Interfaz para lanzar peticiones desde el navegador con resultados en tiempo real:
+
+```bash
+source .venv/bin/activate
+python -m rss_archiveorg.web
+```
+
+Abre `http://localhost:8000`. Desde ahí puedes:
+
+- Pegar entre **1 y 200 URLs** (una por línea)
+- Ajustar la **espera entre peticiones** (mínimo **3 s** para reducir bloqueos de archive.org)
+- Activar o desactivar **proxys** (`proxies.txt`)
+- Ver cada resultado en cuanto termina, con avisos si la web falla o no tiene RRSS/correo
 
 ## Requirements
 

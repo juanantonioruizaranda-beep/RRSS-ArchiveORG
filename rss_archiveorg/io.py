@@ -34,6 +34,20 @@ def read_sites(path: Path) -> list[str]:
     return sites
 
 
+def parse_sites_text(raw: str) -> list[str]:
+    """Parse newline-delimited URLs from form input."""
+    sites: list[str] = []
+    for line_no, line in enumerate(raw.splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        try:
+            sites.append(normalize_site_url(stripped))
+        except ValueError as exc:
+            raise ValueError(f"line {line_no}: {exc}") from exc
+    return sites
+
+
 def write_json(results: Iterable[SiteResult], out: IO[str]) -> None:
     json.dump([result.to_dict() for result in results], out, indent=2, ensure_ascii=False)
     out.write("\n")
