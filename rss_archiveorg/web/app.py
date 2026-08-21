@@ -18,6 +18,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from rss_archiveorg.extractor import SOCIAL_NETWORKS
 from rss_archiveorg.io import parse_sites_text, results_to_csv_text, results_to_json_text
 from rss_archiveorg.pipeline import BatchCancelled, run_sites_batch
+from rss_archiveorg.proxy import load_proxies
 
 MIN_DELAY_SECONDS = 3.0
 DEFAULT_DELAY_SECONDS = 5.0
@@ -127,11 +128,21 @@ def robots_txt() -> PlainTextResponse:
 
 @app.get("/api/config")
 def api_config() -> dict:
+    proxies_count = 0
+    proxies_file_exists = DEFAULT_PROXIES_PATH.exists()
+    if proxies_file_exists:
+        try:
+            proxies_count = len(load_proxies(DEFAULT_PROXIES_PATH))
+        except ValueError:
+            proxies_count = 0
+
     return {
         "min_delay": MIN_DELAY_SECONDS,
         "default_delay": DEFAULT_DELAY_SECONDS,
         "max_urls": MAX_URLS,
-        "proxies_available": DEFAULT_PROXIES_PATH.exists(),
+        "proxies_available": proxies_file_exists and proxies_count > 0,
+        "proxies_file_exists": proxies_file_exists,
+        "proxies_count": proxies_count,
         "social_networks": sorted(SOCIAL_NETWORKS.keys()),
         "primary_social_filters": PRIMARY_SOCIAL_FILTERS,
     }

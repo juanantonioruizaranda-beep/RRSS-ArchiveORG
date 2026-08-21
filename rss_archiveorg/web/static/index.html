@@ -368,6 +368,63 @@
       border-color: rgba(79, 140, 255, 0.35);
       background: rgba(79, 140, 255, 0.12);
     }
+
+    .info-panel {
+      margin-top: 24px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .info-panel summary {
+      cursor: pointer;
+      padding: 18px 22px;
+      font-weight: 700;
+      list-style: none;
+    }
+
+    .info-panel summary::-webkit-details-marker { display: none; }
+
+    .info-panel summary::after {
+      content: "▾";
+      float: right;
+      color: var(--muted);
+    }
+
+    .info-panel[open] summary::after { content: "▴"; }
+
+    .info-panel-body {
+      padding: 0 22px 22px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .info-panel-body h3 {
+      margin: 18px 0 8px;
+      color: var(--text);
+      font-size: 1rem;
+    }
+
+    .info-panel-body ul,
+    .info-panel-body ol {
+      margin: 8px 0;
+      padding-left: 20px;
+    }
+
+    .info-panel-body li { margin: 6px 0; }
+
+    .info-panel-body pre {
+      margin: 10px 0;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: #d7e2f1;
+      overflow-x: auto;
+      font: 0.9rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
   </style>
 </head>
 <body>
@@ -404,7 +461,7 @@
 
           <label class="checkbox">
             <input id="use-proxies" type="checkbox">
-            <span>Usar proxys (<code>proxies.txt</code>)</span>
+            <span>Usar proxys rotativos (<code>proxies.txt</code>)</span>
           </label>
           <p class="hint" id="proxy-hint"></p>
 
@@ -459,6 +516,45 @@
         </div>
       </section>
     </div>
+
+    <details class="info-panel">
+      <summary>Localhost y proxys: cómo funciona esta versión</summary>
+      <div class="info-panel-body">
+        <p>
+          Esta landing es la interfaz web del extractor que también puedes lanzar en
+          <strong>localhost</strong>. El servidor corre en tu máquina y las peticiones a
+          archive.org salen desde ahí, con la misma lógica de proxys que la versión CLI.
+        </p>
+
+        <h3>Arrancar en localhost</h3>
+        <pre>source .venv/bin/activate
+python -m rss_archiveorg.web</pre>
+        <p>Abre <code>http://localhost:8000</code> y usa el formulario de arriba.</p>
+
+        <h3>Proxys rotativos (opcional)</h3>
+        <p>
+          Si archive.org devuelve errores <code>429 Too Many Requests</code>, activa proxys
+          para repartir el tráfico y rotar automáticamente ante bloqueos o fallos temporales.
+        </p>
+        <ol>
+          <li>Copia la plantilla: <code>cp proxies.example.txt proxies.txt</code></li>
+          <li>Añade tus proxys, uno por línea: <code>host:puerto</code> o <code>host:puerto:usuario:contraseña</code></li>
+          <li>Protege el archivo: <code>chmod 600 proxies.txt</code> (nunca lo subas a git)</li>
+          <li>Reinicia el servidor web y marca <strong>Usar proxys rotativos</strong></li>
+        </ol>
+        <p>Comportamiento con proxys activos:</p>
+        <ul>
+          <li>Rotación round-robin <strong>entre cada sitio</strong> del lote</li>
+          <li>Nuevo proxy automático ante <strong>429</strong> o errores <strong>5xx</strong></li>
+          <li>Las credenciales no se muestran en logs ni en la interfaz</li>
+          <li>Sin proxys, usa la espera entre peticiones (mín. 3 s) para reducir bloqueos</li>
+        </ul>
+
+        <h3>Equivalente por CLI</h3>
+        <pre>python -m rss_archiveorg sites.txt --proxies proxies.txt --delay 5 -v</pre>
+        <p>La landing reutiliza el mismo motor de extracción, proxys y reintentos.</p>
+      </div>
+    </details>
   </div>
 
   <script>
@@ -712,9 +808,14 @@
       proxiesAvailable = config.proxies_available;
       primarySocialFilters = config.primary_social_filters || [];
       buildSocialChips(primarySocialFilters);
-      proxyHint.textContent = proxiesAvailable
-        ? "Archivo proxies.txt detectado."
-        : "No hay proxies.txt. Crea uno a partir de proxies.example.txt si quieres rotación.";
+      if (proxiesAvailable) {
+        const count = config.proxies_count || 0;
+        proxyHint.textContent = `${count} proxy(s) cargados desde proxies.txt. Se rotan entre sitios y ante errores 429/5xx.`;
+      } else if (config.proxies_file_exists) {
+        proxyHint.textContent = "Existe proxies.txt pero no tiene proxys válidos. Revisa el formato.";
+      } else {
+        proxyHint.textContent = "No hay proxies.txt. Copia proxies.example.txt para activar rotación en localhost.";
+      }
       useProxiesInput.disabled = !proxiesAvailable;
     }
 
