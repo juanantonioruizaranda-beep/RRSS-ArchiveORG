@@ -40,9 +40,7 @@
       padding: 32px 20px 64px;
     }
 
-    header {
-      margin-bottom: 28px;
-    }
+    header { margin-bottom: 28px; }
 
     header h1 {
       margin: 0 0 8px;
@@ -89,10 +87,8 @@
       line-height: 1.5;
     }
 
-    textarea {
+    textarea, input[type="text"] {
       width: 100%;
-      min-height: 280px;
-      resize: vertical;
       border-radius: 12px;
       border: 1px solid var(--border);
       background: var(--panel);
@@ -101,7 +97,12 @@
       font: 0.95rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
 
-    textarea:focus {
+    textarea {
+      min-height: 240px;
+      resize: vertical;
+    }
+
+    textarea:focus, input[type="text"]:focus {
       outline: 2px solid rgba(79, 140, 255, 0.35);
       border-color: rgba(79, 140, 255, 0.5);
     }
@@ -143,20 +144,71 @@
       user-select: none;
     }
 
-    button {
+    button, .filter-btn {
       border: 0;
       border-radius: 12px;
       padding: 14px 18px;
       font-size: 1rem;
       font-weight: 700;
       cursor: pointer;
-      background: linear-gradient(135deg, var(--accent), #6aa8ff);
-      color: white;
       transition: transform 0.15s ease, opacity 0.15s ease;
     }
 
-    button:hover:not(:disabled) { transform: translateY(-1px); }
-    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    button.primary {
+      background: linear-gradient(135deg, var(--accent), #6aa8ff);
+      color: white;
+    }
+
+    button.secondary {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    button.danger {
+      background: rgba(255, 107, 107, 0.18);
+      color: #ffb4b4;
+      border: 1px solid rgba(255, 107, 107, 0.35);
+    }
+
+    button:hover:not(:disabled), .filter-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    button:disabled, .filter-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .filter-btn {
+      padding: 8px 12px;
+      font-size: 0.88rem;
+      background: var(--panel-2);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .filter-btn.active {
+      background: rgba(79, 140, 255, 0.18);
+      color: #cfe0ff;
+      border-color: rgba(79, 140, 255, 0.35);
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .toolbar-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
 
     .progress {
       margin-bottom: 16px;
@@ -193,6 +245,7 @@
     .status-banner.show { display: block; }
     .status-banner.done { border-color: rgba(61, 220, 132, 0.35); color: #c9f7da; }
     .status-banner.error { border-color: rgba(255, 107, 107, 0.35); color: #ffd2d2; }
+    .status-banner.warn { border-color: rgba(240, 180, 41, 0.35); color: #ffe8a3; }
 
     .results {
       display: grid;
@@ -208,6 +261,8 @@
       padding: 16px;
       background: var(--panel);
     }
+
+    .result.hidden { display: none; }
 
     .result-head {
       display: flex;
@@ -253,15 +308,8 @@
 
     .links li, .emails li { margin: 4px 0; word-break: break-all; }
 
-    .notice {
-      color: var(--warn);
-      margin: 0;
-    }
-
-    .error-text {
-      color: #ffb4b4;
-      margin: 0;
-    }
+    .notice { color: var(--warn); margin: 0; }
+    .error-text { color: #ffb4b4; margin: 0; }
 
     .empty-state {
       color: var(--muted);
@@ -298,17 +346,40 @@
             </div>
           </div>
 
+          <div>
+            <label for="timestamp">Snapshot preferido (opcional)</label>
+            <input id="timestamp" type="text" placeholder="YYYYMMDD o YYYYMMDDhhmmss, ej. 20200101">
+            <p class="hint">Si se indica, archive.org devolverá el snapshot más cercano a esa fecha.</p>
+          </div>
+
           <label class="checkbox">
             <input id="use-proxies" type="checkbox">
             <span>Usar proxys (<code>proxies.txt</code>)</span>
           </label>
           <p class="hint" id="proxy-hint"></p>
 
-          <button id="submit" type="button">Enviar petición</button>
+          <div class="row">
+            <button id="submit" class="primary" type="button">Enviar petición</button>
+            <button id="cancel" class="danger" type="button" hidden>Cancelar</button>
+          </div>
         </div>
       </section>
 
       <section class="card">
+        <div class="toolbar">
+          <div class="toolbar-group" id="filters" hidden>
+            <span class="hint" style="margin:0">Filtrar:</span>
+            <button class="filter-btn active" data-filter="all" type="button">Todos</button>
+            <button class="filter-btn" data-filter="ok" type="button">Con datos</button>
+            <button class="filter-btn" data-filter="empty" type="button">Sin datos</button>
+            <button class="filter-btn" data-filter="error" type="button">Errores</button>
+          </div>
+          <div class="toolbar-group">
+            <button id="export-json" class="secondary" type="button" disabled>Exportar JSON</button>
+            <button id="export-csv" class="secondary" type="button" disabled>Exportar CSV</button>
+          </div>
+        </div>
+
         <div class="progress" id="progress">
           <strong id="progress-label">Procesando…</strong>
           <div class="progress-bar"><span id="progress-bar"></span></div>
@@ -328,16 +399,25 @@
     const urlCount = document.getElementById("url-count");
     const delayInput = document.getElementById("delay");
     const delayValue = document.getElementById("delay-value");
+    const timestampInput = document.getElementById("timestamp");
     const useProxiesInput = document.getElementById("use-proxies");
     const proxyHint = document.getElementById("proxy-hint");
     const submitBtn = document.getElementById("submit");
+    const cancelBtn = document.getElementById("cancel");
     const resultsEl = document.getElementById("results");
     const progressEl = document.getElementById("progress");
     const progressLabel = document.getElementById("progress-label");
     const progressBar = document.getElementById("progress-bar");
     const statusBanner = document.getElementById("status-banner");
+    const filtersEl = document.getElementById("filters");
+    const exportJsonBtn = document.getElementById("export-json");
+    const exportCsvBtn = document.getElementById("export-csv");
 
     let running = false;
+    let abortController = null;
+    let activeFilter = "all";
+    let collectedResults = [];
+    let proxiesAvailable = false;
 
     function countUrls(text) {
       return text
@@ -355,10 +435,19 @@
     function setRunning(active) {
       running = active;
       submitBtn.disabled = active;
+      cancelBtn.hidden = !active;
       urlsInput.disabled = active;
       delayInput.disabled = active;
-      useProxiesInput.disabled = active;
+      timestampInput.disabled = active;
+      useProxiesInput.disabled = active || !proxiesAvailable;
       progressEl.classList.toggle("active", active);
+    }
+
+    function updateExportButtons() {
+      const hasResults = collectedResults.length > 0;
+      exportJsonBtn.disabled = !hasResults;
+      exportCsvBtn.disabled = !hasResults;
+      filtersEl.hidden = !hasResults;
     }
 
     function showBanner(message, kind) {
@@ -367,7 +456,9 @@
     }
 
     function clearResults() {
+      collectedResults = [];
       resultsEl.innerHTML = "";
+      updateExportButtons();
     }
 
     function warningText(code) {
@@ -376,13 +467,19 @@
       return code;
     }
 
+    function applyFilters() {
+      document.querySelectorAll(".result").forEach((card) => {
+        const status = card.dataset.status;
+        card.classList.toggle("hidden", activeFilter !== "all" && activeFilter !== status);
+      });
+    }
+
     function renderResult(data) {
       const card = document.createElement("article");
       card.className = "result";
+      card.dataset.status = data.status;
 
       const statusLabel = data.status === "ok" ? "Con datos" : data.status === "empty" ? "Sin datos" : "Error";
-      const badgeClass = data.status;
-
       let body = "";
 
       if (data.error) {
@@ -416,12 +513,13 @@
       card.innerHTML = `
         <div class="result-head">
           <h3>${escapeHtml(data.site)}</h3>
-          <span class="badge ${badgeClass}">${statusLabel}</span>
+          <span class="badge ${data.status}">${statusLabel}</span>
         </div>
         ${body}
       `;
 
       resultsEl.prepend(card);
+      applyFilters();
     }
 
     function escapeHtml(value) {
@@ -442,12 +540,20 @@
       delayInput.min = String(config.min_delay);
       delayInput.value = String(config.default_delay);
       delayValue.textContent = String(config.default_delay);
-      proxyHint.textContent = config.proxies_available
+      proxiesAvailable = config.proxies_available;
+      proxyHint.textContent = proxiesAvailable
         ? "Archivo proxies.txt detectado."
         : "No hay proxies.txt. Crea uno a partir de proxies.example.txt si quieres rotación.";
-      if (!config.proxies_available) {
-        useProxiesInput.disabled = true;
+      useProxiesInput.disabled = !proxiesAvailable;
+    }
+
+    function validateTimestamp(value) {
+      const cleaned = value.trim();
+      if (!cleaned) return null;
+      if (!/^\d{8}(\d{6})?$/.test(cleaned)) {
+        return "El timestamp debe tener formato YYYYMMDD o YYYYMMDDhhmmss";
       }
+      return null;
     }
 
     async function submitJob() {
@@ -461,6 +567,12 @@
         return;
       }
 
+      const timestampError = validateTimestamp(timestampInput.value);
+      if (timestampError) {
+        showBanner(timestampError, "error");
+        return;
+      }
+
       clearResults();
       showBanner("", "");
       statusBanner.className = "status-banner";
@@ -468,21 +580,38 @@
       progressBar.style.width = "0%";
       progressLabel.textContent = "Iniciando…";
 
-      const response = await fetch("/api/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          urls_text: urlsInput.value,
-          delay: Number(delayInput.value),
-          use_proxies: useProxiesInput.checked,
-        }),
-      });
+      abortController = new AbortController();
+
+      const payload = {
+        urls_text: urlsInput.value,
+        delay: Number(delayInput.value),
+        use_proxies: useProxiesInput.checked,
+        timestamp: timestampInput.value.trim() || null,
+      };
+
+      let response;
+      try {
+        response = await fetch("/api/extract", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: abortController.signal,
+        });
+      } catch (error) {
+        if (error.name === "AbortError") {
+          showBanner("Cancelando petición…", "warn");
+        } else {
+          showBanner("No se pudo conectar con el servidor.", "error");
+        }
+        setRunning(false);
+        return;
+      }
 
       if (!response.ok) {
         let message = "No se pudo iniciar la petición.";
         try {
-          const payload = await response.json();
-          if (payload.detail) message = payload.detail;
+          const body = await response.json();
+          if (body.detail) message = body.detail;
         } catch (_) {}
         showBanner(message, "error");
         setRunning(false);
@@ -493,30 +622,38 @@
       const decoder = new TextDecoder();
       let buffer = "";
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
 
-        let boundary = buffer.indexOf("\n\n");
-        while (boundary !== -1) {
-          const chunk = buffer.slice(0, boundary);
-          buffer = buffer.slice(boundary + 2);
-          const line = chunk.split("\n").find((entry) => entry.startsWith("data: "));
-          if (line) {
-            const payload = JSON.parse(line.slice(6));
-            handleEvent(payload);
+          let boundary = buffer.indexOf("\n\n");
+          while (boundary !== -1) {
+            const chunk = buffer.slice(0, boundary);
+            buffer = buffer.slice(boundary + 2);
+            const line = chunk.split("\n").find((entry) => entry.startsWith("data: "));
+            if (line) {
+              handleEvent(JSON.parse(line.slice(6)));
+            }
+            boundary = buffer.indexOf("\n\n");
           }
-          boundary = buffer.indexOf("\n\n");
+        }
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          showBanner("Se perdió la conexión con el servidor.", "error");
         }
       }
 
       setRunning(false);
+      abortController = null;
     }
 
     function handleEvent(payload) {
       if (payload.type === "result") {
+        collectedResults.push(payload);
         renderResult(payload);
+        updateExportButtons();
         const pct = Math.round((payload.index / payload.total) * 100);
         progressBar.style.width = `${pct}%`;
         progressLabel.textContent = `Procesando ${payload.index} de ${payload.total}`;
@@ -530,9 +667,38 @@
         return;
       }
 
+      if (payload.type === "cancelled") {
+        progressLabel.textContent = "Cancelado";
+        showBanner(`⏹ ${payload.message}. ${payload.processed} de ${payload.total} sitio(s) procesados.`, "warn");
+        return;
+      }
+
       if (payload.type === "fatal") {
         showBanner(`Error fatal: ${payload.message}`, "error");
       }
+    }
+
+    async function exportResults(format) {
+      if (!collectedResults.length) return;
+
+      const response = await fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ results: collectedResults, format }),
+      });
+
+      if (!response.ok) {
+        showBanner("No se pudo exportar los resultados.", "error");
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = format === "json" ? "rss-archiveorg-results.json" : "rss-archiveorg-results.csv";
+      link.click();
+      URL.revokeObjectURL(url);
     }
 
     urlsInput.addEventListener("input", updateUrlCount);
@@ -540,6 +706,21 @@
       delayValue.textContent = delayInput.value;
     });
     submitBtn.addEventListener("click", submitJob);
+    cancelBtn.addEventListener("click", () => {
+      if (abortController) abortController.abort();
+    });
+    exportJsonBtn.addEventListener("click", () => exportResults("json"));
+    exportCsvBtn.addEventListener("click", () => exportResults("csv"));
+
+    filtersEl.addEventListener("click", (event) => {
+      const button = event.target.closest(".filter-btn");
+      if (!button) return;
+      activeFilter = button.dataset.filter;
+      filtersEl.querySelectorAll(".filter-btn").forEach((item) => {
+        item.classList.toggle("active", item === button);
+      });
+      applyFilters();
+    });
 
     loadConfig().then(updateUrlCount);
   </script>

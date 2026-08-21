@@ -22,6 +22,10 @@ Abre `http://localhost:8000`. Desde ahí puedes:
 - Ajustar la **espera entre peticiones** (mínimo **3 s** para reducir bloqueos de archive.org)
 - Activar o desactivar **proxys** (`proxies.txt`)
 - Ver cada resultado en cuanto termina, con avisos si la web falla o no tiene RRSS/correo
+- **Cancelar** un lote en curso
+- **Filtrar** resultados (con datos / sin datos / errores)
+- **Exportar** a JSON o CSV
+- Elegir un **snapshot preferido** (`YYYYMMDD` o `YYYYMMDDhhmmss`)
 
 ## Requirements
 
@@ -99,6 +103,8 @@ JSON output is a list of objects, one per site:
       "facebook": ["https://www.facebook.com/..."],
       "twitter": ["https://twitter.com/..."]
     },
+    "corporate_emails": ["info@example.com"],
+    "all_emails": ["info@example.com"],
     "error": null
   }
 ]
@@ -116,6 +122,9 @@ rss_archiveorg/
   wayback.py     # archive.org Wayback Machine client
   proxy.py       # Proxy parsing and rotation
   extractor.py   # HTML -> social network links
+  extractors/    # Corporate email extraction
+  utils.py       # URL/email helpers
+  web/           # FastAPI landing + SSE streaming UI
 docs/
   ARCHITECTURE.md
   SECURITY.md

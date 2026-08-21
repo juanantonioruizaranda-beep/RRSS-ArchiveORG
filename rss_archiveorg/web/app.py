@@ -5,23 +5,25 @@ from __future__ import annotations
 import asyncio
 import json
 import queue
+import re
 import threading
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
-from rss_archiveorg.io import parse_sites_text
-from rss_archiveorg.pipeline import run_sites_batch
+from rss_archiveorg.io import parse_sites_text, results_to_csv_text, results_to_json_text
+from rss_archiveorg.pipeline import BatchCancelled, run_sites_batch
 
 MIN_DELAY_SECONDS = 3.0
 DEFAULT_DELAY_SECONDS = 5.0
 MAX_URLS = 200
 DEFAULT_PROXIES_PATH = Path("proxies.txt")
+TIMESTAMP_PATTERN = re.compile(r"^\d{8}(\d{6})?$")
 
-app = FastAPI(title="RSS-ArchiveORG", version="0.2.0")
+app = FastAPI(title="RSS-ArchiveORG", version="0.3.0")
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -30,6 +32,7 @@ class ExtractRequest(BaseModel):
     urls_text: str = Field(..., min_length=1)
     delay: float = Field(default=DEFAULT_DELAY_SECONDS, ge=MIN_DELAY_SECONDS, le=120.0)
     use_proxies: bool = False
+    timestamp: str | None = None
 
     @field_validator("urls_text")
     @classmethod
@@ -37,6 +40,23 @@ class ExtractRequest(BaseModel):
         if not value.strip():
             raise ValueError("Añade al menos una URL")
         return value
+
+    @field_validator("timestamp")
+    @classmethod
+    def validate_timestamp(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        if not cleaned:
+            return None
+        if not TIMESTAMP_PATTERN.fullmatch(cleaned):
+            raise ValueError("El timestamp debe tener formato YYYYMMDD o YYYYMMDDhhmmss")
+        return cleaned
+
+
+class ExportRequest(BaseModel):
+    results: list[dict]
+    format: str = Field(pattern="^(json|csv)$")
 
 
 def _resolve_proxies_path(use_proxies: bool) -> Path | None:
@@ -85,14 +105,40 @@ def api_config() -> dict:
     }
 
 
+@app.post("/api/export")
+def export_results(request: ExportRequest) -> Response:
+    if not request.results:
+        raise HTTPException(status_code=400, detail="No hay resultados para exportar")
+
+    if request.format == "json":
+        content = results_to_json_text(request.results)
+        media_type = "application/json"
+        filename = "rss-archiveorg-results.json"
+    else:
+        content = results_to_csv_text(request.results)
+        media_type = "text/csv; charset=utf-8"
+        filename = "rss-archiveorg-results.csv"
+
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @app.post("/api/extract")
-async def extract_stream(request: ExtractRequest) -> StreamingResponse:
+async def extract_stream(http_request: Request, request: ExtractRequest) -> StreamingResponse:
     sites = _parse_request_urls(request.urls_text)
     proxies_path = _resolve_proxies_path(request.use_proxies)
     event_queue: queue.Queue[str | None] = queue.Queue()
+    cancel_event = threading.Event()
 
     def worker() -> None:
+        processed = 0
+
         def on_result(result, index: int, total: int) -> None:
+            nonlocal processed
+            processed = index
             payload = result.to_web_dict(index=index, total=total)
             event_queue.put(json.dumps(payload, ensure_ascii=False))
 
@@ -101,14 +147,41 @@ async def extract_stream(request: ExtractRequest) -> StreamingResponse:
                 sites,
                 delay=request.delay,
                 proxies_path=proxies_path,
+                timestamp=request.timestamp,
+                should_cancel=cancel_event.is_set,
                 on_result=on_result,
             )
+            if cancel_event.is_set():
+                event_queue.put(
+                    json.dumps(
+                        {
+                            "type": "cancelled",
+                            "processed": processed,
+                            "total": len(sites),
+                            "message": "Proceso cancelado",
+                        },
+                        ensure_ascii=False,
+                    )
+                )
+            else:
+                event_queue.put(
+                    json.dumps(
+                        {
+                            "type": "done",
+                            "total": len(sites),
+                            "message": "Proceso completado",
+                        },
+                        ensure_ascii=False,
+                    )
+                )
+        except BatchCancelled:
             event_queue.put(
                 json.dumps(
                     {
-                        "type": "done",
+                        "type": "cancelled",
+                        "processed": processed,
                         "total": len(sites),
-                        "message": "Proceso completado",
+                        "message": "Proceso cancelado",
                     },
                     ensure_ascii=False,
                 )
@@ -130,7 +203,12 @@ async def extract_stream(request: ExtractRequest) -> StreamingResponse:
 
     async def event_generator():
         while True:
-            item = await asyncio.to_thread(event_queue.get)
+            if await http_request.is_disconnected():
+                cancel_event.set()
+            try:
+                item = await asyncio.to_thread(event_queue.get, True, 0.25)
+            except queue.Empty:
+                continue
             if item is None:
                 break
             yield f"data: {item}\n\n"

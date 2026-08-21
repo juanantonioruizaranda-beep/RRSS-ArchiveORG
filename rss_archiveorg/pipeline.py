@@ -82,6 +82,10 @@ def run_batch(
     )
 
 
+class BatchCancelled(Exception):
+    """Raised when a batch run is stopped before all sites are processed."""
+
+
 def run_sites_batch(
     sites: list[str],
     *,
@@ -94,6 +98,7 @@ def run_sites_batch(
     proxies_path: Path | None = None,
     log: Callable[[str], None] | None = None,
     on_result: Callable[[SiteResult, int, int], None] | None = None,
+    should_cancel: Callable[[], bool] | None = None,
 ) -> list[SiteResult]:
     """Process an in-memory site list and optionally emit each result."""
     client, proxy_pool = build_client(
@@ -122,8 +127,14 @@ def run_sites_batch(
     results: list[SiteResult] = []
     total = len(sites)
     for index, site in enumerate(sites, start=1):
+        if should_cancel is not None and should_cancel():
+            raise BatchCancelled(f"cancelled after {len(results)} of {total} site(s)")
+
         if index > 1 and delay > 0:
-            time.sleep(delay)
+            _interruptible_sleep(delay, should_cancel)
+
+        if should_cancel is not None and should_cancel():
+            raise BatchCancelled(f"cancelled after {len(results)} of {total} site(s)")
 
         if log:
             log(f"[{index}/{total}] {site}")
@@ -149,6 +160,22 @@ def run_sites_batch(
             on_result(item, index, total)
 
     return results
+
+
+def _interruptible_sleep(
+    seconds: float,
+    should_cancel: Callable[[], bool] | None,
+    *,
+    step: float = 0.25,
+) -> None:
+    """Sleep in short chunks so cancellation can stop between sites quickly."""
+    elapsed = 0.0
+    while elapsed < seconds:
+        if should_cancel is not None and should_cancel():
+            return
+        chunk = min(step, seconds - elapsed)
+        time.sleep(chunk)
+        elapsed += chunk
 
 
 def _load_sites(config: RunConfig) -> list[str]:
