@@ -31,7 +31,12 @@ def normalize_url(url: str) -> str:
         return url
     if not url.startswith(("http://", "https://")):
         url = f"https://{url}"
-    return url
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    path = parsed.path or ""
+    if parsed.query:
+        path = f"{path}?{parsed.query}"
+    return f"https://{host}{path}"
 
 
 def domain_from_url(url: str) -> str:

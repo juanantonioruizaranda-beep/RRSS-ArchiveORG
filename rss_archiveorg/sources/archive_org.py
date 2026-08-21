@@ -8,7 +8,7 @@ CDX_API = "https://web.archive.org/cdx/search/cdx"
 USER_AGENT = "RSS-ArchiveORG/0.1 (+https://github.com/juanantonioruizaranda-beep/RSS-ArchiveORG)"
 
 
-def resolve_snapshot(original_url: str, timeout: float = 30.0) -> tuple[str | None, str | None]:
+def resolve_snapshot(original_url: str, timeout: float = 60.0) -> tuple[str | None, str | None]:
     """Resolve the latest archived snapshot for a URL via the CDX API."""
     url = normalize_url(original_url)
     params = {
@@ -27,12 +27,13 @@ def resolve_snapshot(original_url: str, timeout: float = 30.0) -> tuple[str | No
     if len(rows) < 2:
         return None, None
 
-    _, timestamp, _, _, _ = rows[1]
+    row = rows[1]
+    timestamp = row[1]
     archive_url = f"https://web.archive.org/web/{timestamp}/{url}"
     return archive_url, timestamp
 
 
-def fetch_archived_page(archive_url: str, timeout: float = 30.0) -> str:
+def fetch_archived_page(archive_url: str, timeout: float = 60.0) -> str:
     with httpx.Client(
         timeout=timeout,
         follow_redirects=True,
