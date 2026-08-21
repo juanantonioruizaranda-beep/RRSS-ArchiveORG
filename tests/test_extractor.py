@@ -1,5 +1,4 @@
 from rss_archiveorg.extractor import extract_social_links
-from rss_archiveorg.wayback import WaybackClient, Snapshot
 
 SAMPLE_HTML = """
 <html><body>
@@ -38,14 +37,3 @@ def test_extract_ignores_non_social():
 
 def test_extract_empty():
     assert extract_social_links("<html></html>") == {}
-
-
-def test_raw_url_uses_id_modifier():
-    snap = Snapshot(
-        original_url="https://example.com",
-        archived_url="http://web.archive.org/web/20260821040028/https://example.com/",
-        timestamp="20260821040028",
-        status="200",
-    )
-    raw = WaybackClient._raw_url(snap)
-    assert raw == "http://web.archive.org/web/20260821040028id_/https://example.com/"

@@ -57,6 +57,8 @@ class WaybackClient:
         self.backoff_max = backoff_max
         self.proxy_pool = proxy_pool
         self.session = session or requests.Session()
+        # Do not inherit HTTP(S)_PROXY from the environment unless explicitly configured.
+        self.session.trust_env = False
         self.session.headers.setdefault("User-Agent", USER_AGENT)
         if self.proxy_pool is not None:
             self.proxy_pool.apply_to_session(self.session)

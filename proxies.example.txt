@@ -1,0 +1,9 @@
+# Example proxy list for archive.org rate-limit rotation.
+# Copy to proxies.txt and replace with your credentials:
+#   cp proxies.example.txt proxies.txt
+#
+# Format: host:port:username:password
+# Lines starting with # and blank lines are ignored.
+#
+# 203.0.113.10:8080:your_user:your_password
+# 203.0.113.11:8080:your_user:your_password

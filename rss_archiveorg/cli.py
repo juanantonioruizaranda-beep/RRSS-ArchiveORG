@@ -3,65 +3,13 @@
 from __future__ import annotations
 
 import argparse
-import csv
-import json
 import sys
-import time
 from pathlib import Path
-from typing import Dict, List
+from typing import List
 
-from .extractor import extract_social_links
-from .proxy import ProxyPool, load_proxies
-from .wayback import WaybackClient, WaybackError
-
-
-def read_sites(path: Path) -> List[str]:
-    """Read a newline-delimited list of websites, ignoring blanks and comments."""
-    sites: List[str] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        sites.append(line)
-    return sites
-
-
-def process_site(client: WaybackClient, site: str, timestamp: str | None) -> Dict:
-    """Resolve a site through archive.org and extract its social links."""
-    result: Dict = {"site": site, "social": {}, "snapshot": None, "error": None}
-    try:
-        snapshot = client.closest_snapshot(site, timestamp=timestamp)
-        result["snapshot"] = {
-            "url": snapshot.archived_url,
-            "timestamp": snapshot.timestamp,
-        }
-        html = client.fetch_html(snapshot)
-        result["social"] = extract_social_links(html)
-    except WaybackError as exc:
-        result["error"] = str(exc)
-    return result
-
-
-def write_json(results: List[Dict], out) -> None:
-    json.dump(results, out, indent=2, ensure_ascii=False)
-    out.write("\n")
-
-
-def write_csv(results: List[Dict], out) -> None:
-    writer = csv.writer(out)
-    writer.writerow(["site", "network", "profile_url", "snapshot_timestamp", "error"])
-    for item in results:
-        ts = (item.get("snapshot") or {}).get("timestamp", "")
-        if item["error"]:
-            writer.writerow([item["site"], "", "", ts, item["error"]])
-            continue
-        social = item["social"]
-        if not social:
-            writer.writerow([item["site"], "", "", ts, ""])
-            continue
-        for network, links in social.items():
-            for link in links:
-                writer.writerow([item["site"], network, link, ts, ""])
+from .config import RunConfig
+from .io import write_csv, write_json
+from .pipeline import run_batch, stderr_logger
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -142,73 +90,40 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: List[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    config = RunConfig.from_namespace(args)
 
-    if not args.sites.exists():
-        print(f"error: sites file not found: {args.sites}", file=sys.stderr)
+    if not config.sites_path.exists():
+        print(f"error: sites file not found: {config.sites_path}", file=sys.stderr)
         return 2
 
-    sites = read_sites(args.sites)
-    if args.limit is not None:
-        sites = sites[: args.limit]
-    if not sites:
-        print("error: no websites to process", file=sys.stderr)
+    if config.proxies_path is not None and not config.proxies_path.exists():
+        print(f"error: proxy file not found: {config.proxies_path}", file=sys.stderr)
         return 2
 
-    proxy_pool = None
-    if args.proxies is not None:
-        if not args.proxies.exists():
-            print(f"error: proxy file not found: {args.proxies}", file=sys.stderr)
-            return 2
-        proxies = load_proxies(args.proxies)
-        if not proxies:
-            print(f"error: no proxies found in {args.proxies}", file=sys.stderr)
-            return 2
-        proxy_pool = ProxyPool(proxies)
-        if args.verbose:
-            print(
-                f"Using {len(proxy_pool)} proxy/proxies from {args.proxies}",
-                file=sys.stderr,
-            )
-
-    client = WaybackClient(
-        timeout=args.timeout,
-        max_retries=args.max_retries,
-        backoff=args.backoff,
-        backoff_max=args.backoff_max,
-        proxy_pool=proxy_pool,
-    )
-    results: List[Dict] = []
-    for index, site in enumerate(sites, start=1):
-        if index > 1 and args.delay > 0:
-            time.sleep(args.delay)
-        if args.verbose:
-            print(f"[{index}/{len(sites)}] {site}", file=sys.stderr)
-        if proxy_pool is not None:
-            client.prepare_for_site()
-            if args.verbose:
-                proxy = proxy_pool.current
-                print(f"    proxy: {proxy.host}:{proxy.port}", file=sys.stderr)
-        item = process_site(client, site, args.timestamp)
-        if args.verbose:
-            if item["error"]:
-                print(f"    error: {item['error']}", file=sys.stderr)
-            else:
-                total = sum(len(v) for v in item["social"].values())
-                print(f"    found {total} social link(s)", file=sys.stderr)
-        results.append(item)
-
-    out = args.output.open("w", encoding="utf-8") if args.output else sys.stdout
     try:
-        if args.format == "csv":
+        results = run_batch(
+            config,
+            log=stderr_logger if config.verbose else None,
+        )
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    out = config.output_path.open("w", encoding="utf-8") if config.output_path else sys.stdout
+    try:
+        if config.output_format == "csv":
             write_csv(results, out)
         else:
             write_json(results, out)
     finally:
-        if args.output:
+        if config.output_path:
             out.close()
 
-    if args.output:
-        print(f"Wrote {len(results)} result(s) to {args.output}", file=sys.stderr)
+    if config.output_path:
+        print(
+            f"Wrote {len(results)} result(s) to {config.output_path}",
+            file=sys.stderr,
+        )
 
     return 0
 

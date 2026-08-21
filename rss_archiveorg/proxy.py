@@ -2,10 +2,38 @@
 
 from __future__ import annotations
 
+import ipaddress
+import re
+import stat
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator, Optional
 from urllib.parse import quote
+
+_HOSTNAME_RE = re.compile(
+    r"^[a-zA-Z0-9](?:[a-zA-Z0-9.-]{0,253}[a-zA-Z0-9])?$"
+)
+
+
+def _validate_host(host: str) -> str:
+    host = host.strip()
+    if not host:
+        raise ValueError("empty proxy host")
+    try:
+        ipaddress.ip_address(host)
+        return host
+    except ValueError:
+        pass
+    if _HOSTNAME_RE.match(host):
+        return host
+    raise ValueError(f"invalid proxy host {host!r}")
+
+
+def _validate_port(port: int) -> int:
+    if not 1 <= port <= 65535:
+        raise ValueError(f"invalid proxy port {port}")
+    return port
 
 
 @dataclass(frozen=True)
@@ -26,6 +54,18 @@ class Proxy:
             proxy_url = f"http://{self.host}:{self.port}"
         return {"http": proxy_url, "https": proxy_url}
 
+    def display_host(self) -> str:
+        """Return a log-safe host:port label without credentials."""
+        return f"{self.host}:{self.port}"
+
+    def __repr__(self) -> str:
+        if self.password:
+            return (
+                f"Proxy(host={self.host!r}, port={self.port}, "
+                f"username={self.username!r}, password='***')"
+            )
+        return f"Proxy(host={self.host!r}, port={self.port})"
+
     @classmethod
     def parse(cls, line: str) -> Optional["Proxy"]:
         """Parse ``host:port`` or ``host:port:user:pass`` lines."""
@@ -35,13 +75,17 @@ class Proxy:
 
         parts = line.split(":")
         if len(parts) == 2:
-            host, port = parts
-            return cls(host=host, port=int(port))
-        if len(parts) == 4:
-            host, port, username, password = parts
+            host, port_text = parts
             return cls(
-                host=host,
-                port=int(port),
+                host=_validate_host(host),
+                port=_validate_port(int(port_text)),
+            )
+        if len(parts) >= 4:
+            host, port_text, username = parts[0], parts[1], parts[2]
+            password = ":".join(parts[3:])
+            return cls(
+                host=_validate_host(host),
+                port=_validate_port(int(port_text)),
                 username=username,
                 password=password,
             )
@@ -50,11 +94,26 @@ class Proxy:
         )
 
 
+def _warn_if_world_readable(path: Path) -> None:
+    if not path.exists():
+        return
+    mode = path.stat().st_mode
+    if mode & (stat.S_IRWXG | stat.S_IRWXO):
+        warnings.warn(
+            f"proxy file {path} is readable by group or others; use chmod 600",
+            stacklevel=3,
+        )
+
+
 def load_proxies(path: Path) -> list[Proxy]:
     """Load proxies from a newline-delimited text file."""
+    _warn_if_world_readable(path)
     proxies: list[Proxy] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        proxy = Proxy.parse(line)
+    for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        try:
+            proxy = Proxy.parse(line)
+        except ValueError as exc:
+            raise ValueError(f"{path}:{line_no}: {exc}") from exc
         if proxy is not None:
             proxies.append(proxy)
     return proxies

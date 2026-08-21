@@ -6,12 +6,12 @@ from rss_archiveorg.proxy import Proxy, ProxyPool, load_proxies
 
 
 def test_proxy_parse_with_auth():
-    proxy = Proxy.parse("31.59.20.176:6754:loykprsf:fjneokaotzmc")
+    proxy = Proxy.parse("203.0.113.10:8080:proxy_user:proxy_pass")
     assert proxy == Proxy(
-        host="31.59.20.176",
-        port=6754,
-        username="loykprsf",
-        password="fjneokaotzmc",
+        host="203.0.113.10",
+        port=8080,
+        username="proxy_user",
+        password="proxy_pass",
     )
 
 
@@ -20,32 +20,61 @@ def test_proxy_parse_without_auth():
     assert proxy == Proxy(host="127.0.0.1", port=8080)
 
 
+def test_proxy_parse_password_with_colons():
+    proxy = Proxy.parse("203.0.113.10:8080:user:pa:ss:word")
+    assert proxy is not None
+    assert proxy.password == "pa:ss:word"
+
+
 def test_proxy_parse_skips_comments_and_blanks():
     assert Proxy.parse("# comment") is None
     assert Proxy.parse("") is None
 
 
+def test_proxy_parse_rejects_invalid_port():
+    with pytest.raises(ValueError, match="invalid proxy port"):
+        Proxy.parse("203.0.113.10:70000")
+
+
 def test_proxy_requests_dict_includes_credentials():
-    proxy = Proxy.parse("31.59.20.176:6754:user:pass")
+    proxy = Proxy.parse("203.0.113.10:8080:user:pass")
     assert proxy is not None
     proxies = proxy.requests_dict()
-    assert proxies["http"] == "http://user:pass@31.59.20.176:6754"
+    assert proxies["http"] == "http://user:pass@203.0.113.10:8080"
     assert proxies["https"] == proxies["http"]
+
+
+def test_proxy_repr_masks_password():
+    proxy = Proxy(host="203.0.113.10", port=8080, username="user", password="secret")
+    assert "secret" not in repr(proxy)
+    assert "password='***'" in repr(proxy)
+
+
+def test_proxy_display_host():
+    proxy = Proxy(host="203.0.113.10", port=8080, username="user", password="secret")
+    assert proxy.display_host() == "203.0.113.10:8080"
 
 
 def test_load_proxies_from_file(tmp_path: Path):
     path = tmp_path / "proxies.txt"
     path.write_text(
         "# header\n"
-        "31.59.20.176:6754:loykprsf:fjneokaotzmc\n"
+        "203.0.113.10:8080:proxy_user:proxy_pass\n"
         "\n"
         "127.0.0.1:8080\n",
         encoding="utf-8",
     )
     proxies = load_proxies(path)
     assert len(proxies) == 2
-    assert proxies[0].host == "31.59.20.176"
+    assert proxies[0].host == "203.0.113.10"
     assert proxies[1].port == 8080
+
+
+def test_load_proxies_reports_line_number(tmp_path: Path):
+    path = tmp_path / "proxies.txt"
+    path.write_text("bad-line\n", encoding="utf-8")
+    with pytest.raises(ValueError, match=r":1:"):
+        load_proxies(path)
 
 
 def test_proxy_pool_rotates_round_robin():
