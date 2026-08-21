@@ -186,6 +186,44 @@
       font-size: 0.88rem;
     }
 
+    .proxy-panel {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .proxy-inputs {
+      display: grid;
+      gap: 10px;
+    }
+
+    .proxy-inputs textarea {
+      min-height: 120px;
+    }
+
+    .file-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px 12px;
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    .file-btn input[type="file"],
+    #urls-file,
+    #proxies-file {
+      display: none;
+    }
+
     .result-actions {
       margin-top: 12px;
     }
@@ -370,12 +408,10 @@
     }
 
     .info-panel {
-      margin-top: 24px;
+      margin-top: 20px;
       border: 1px solid var(--border);
       border-radius: var(--radius);
       background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
-      box-shadow: var(--shadow);
-      overflow: hidden;
     }
 
     .info-panel summary {
@@ -434,7 +470,7 @@
       <p>
         Extrae redes sociales y correos corporativos desde snapshots de
         <a href="https://web.archive.org/" target="_blank" rel="nofollow noopener noreferrer">archive.org</a>.
-        Añade entre 1 y 200 URLs, configura la espera entre peticiones y lanza el lote.
+        Pega o sube un listado de URLs, configura la espera y, si quieres, rota proxys de forma cíclica.
       </p>
     </header>
 
@@ -442,7 +478,12 @@
       <section class="card">
         <label for="urls">URLs (una por línea)</label>
         <textarea id="urls" placeholder="omicshealth.es&#10;https://otra-web.es"></textarea>
-        <p class="hint" id="url-count">0 URLs · máximo 200</p>
+        <div class="row">
+          <label class="file-btn" for="urls-file">Subir listado .txt</label>
+          <input id="urls-file" type="file" accept=".txt,.csv,text/plain">
+          <span class="hint" id="urls-file-name"></span>
+        </div>
+        <p class="hint" id="url-count">0 URLs</p>
 
         <div class="controls">
           <div>
@@ -459,11 +500,33 @@
             <p class="hint">Si se indica, archive.org devolverá el snapshot más cercano a esa fecha.</p>
           </div>
 
-          <label class="checkbox">
-            <input id="use-proxies" type="checkbox">
-            <span>Usar proxys rotativos (<code>proxies.txt</code>)</span>
-          </label>
-          <p class="hint" id="proxy-hint"></p>
+          <div class="proxy-panel">
+            <label class="checkbox">
+              <input id="use-proxies" type="checkbox">
+              <span>Usar proxys de forma cíclica (IP propia + proxys)</span>
+            </label>
+
+            <div class="proxy-inputs" id="proxy-inputs" hidden>
+              <div>
+                <label for="proxies">Proxys (copiar y pegar, uno por línea)</label>
+                <textarea id="proxies" placeholder="203.0.113.10:8080:usuario:contraseña&#10;203.0.113.11:8080:usuario:contraseña"></textarea>
+                <p class="hint" id="proxy-count">0 proxys</p>
+              </div>
+
+              <div class="row">
+                <label class="file-btn secondary small" for="proxies-file">
+                  Subir archivo .txt
+                </label>
+                <input id="proxies-file" type="file" accept=".txt,text/plain">
+                <span class="hint" id="proxy-file-name"></span>
+              </div>
+
+              <p class="hint" id="proxy-hint">
+                Formato por línea: <code>host:port</code> o <code>host:port:usuario:contraseña</code>.
+                Ciclo continuo: <strong>IP propia → proxy 1 → proxy 2 → …</strong> y vuelve a empezar.
+              </p>
+            </div>
+          </div>
 
           <div class="row">
             <button id="submit" class="primary" type="button">Enviar petición</button>
@@ -521,49 +584,37 @@
       <summary>Localhost y proxys: cómo funciona esta versión</summary>
       <div class="info-panel-body">
         <p>
-          Esta landing es la interfaz web del extractor que también puedes lanzar en
-          <strong>localhost</strong>. El servidor corre en tu máquina y las peticiones a
-          archive.org salen desde ahí, con la misma lógica de proxys que la versión CLI.
+          Esta landing es la interfaz web del extractor. El servidor corre en la máquina
+          donde se lanza y las peticiones a archive.org salen desde ahí.
         </p>
-
-        <h3>Arrancar en localhost</h3>
-        <pre>source .venv/bin/activate
-python -m rss_archiveorg.web</pre>
-        <p>Abre <code>http://localhost:8000</code> y usa el formulario de arriba.</p>
-
-        <h3>Proxys rotativos (opcional)</h3>
+        <h3>Listado de URLs</h3>
+        <p>Pega tantas URLs como necesites (una por línea) o sube un archivo <code>.txt</code>. Ya no hay tope de 200.</p>
+        <h3>Proxys cíclicos (opcional)</h3>
         <p>
-          Si archive.org devuelve errores <code>429 Too Many Requests</code>, activa proxys
-          para repartir el tráfico y rotar automáticamente ante bloqueos o fallos temporales.
+          Si marcas la opción, pega tus proxys o sube un <code>.txt</code>. El lote usa las rutas
+          de forma continua y cíclica: primero la <strong>IP propia</strong>, después el
+          <strong>proxy 1</strong>, el <strong>proxy 2</strong>, etc., y vuelve a la IP propia.
         </p>
-        <ol>
-          <li>Copia la plantilla: <code>cp proxies.example.txt proxies.txt</code></li>
-          <li>Añade tus proxys, uno por línea: <code>host:puerto</code> o <code>host:puerto:usuario:contraseña</code></li>
-          <li>Protege el archivo: <code>chmod 600 proxies.txt</code> (nunca lo subas a git)</li>
-          <li>Reinicia el servidor web y marca <strong>Usar proxys rotativos</strong></li>
-        </ol>
-        <p>Comportamiento con proxys activos:</p>
-        <ul>
-          <li>Rotación round-robin <strong>entre cada sitio</strong> del lote</li>
-          <li>Nuevo proxy automático ante <strong>429</strong> o errores <strong>5xx</strong></li>
-          <li>Las credenciales no se muestran en logs ni en la interfaz</li>
-          <li>Sin proxys, usa la espera entre peticiones (mín. 3 s) para reducir bloqueos</li>
-        </ul>
-
-        <h3>Equivalente por CLI</h3>
+        <p>Ante un 429 o error 5xx también avanza al siguiente hop del ciclo.</p>
         <pre>python -m rss_archiveorg sites.txt --proxies proxies.txt --delay 5 -v</pre>
-        <p>La landing reutiliza el mismo motor de extracción, proxys y reintentos.</p>
       </div>
     </details>
   </div>
 
   <script>
     const urlsInput = document.getElementById("urls");
+    const urlsFileInput = document.getElementById("urls-file");
+    const urlsFileName = document.getElementById("urls-file-name");
     const urlCount = document.getElementById("url-count");
     const delayInput = document.getElementById("delay");
     const delayValue = document.getElementById("delay-value");
     const timestampInput = document.getElementById("timestamp");
     const useProxiesInput = document.getElementById("use-proxies");
+    const proxyInputs = document.getElementById("proxy-inputs");
+    const proxiesInput = document.getElementById("proxies");
+    const proxiesFileInput = document.getElementById("proxies-file");
+    const proxyCount = document.getElementById("proxy-count");
+    const proxyFileName = document.getElementById("proxy-file-name");
     const proxyHint = document.getElementById("proxy-hint");
     const submitBtn = document.getElementById("submit");
     const cancelBtn = document.getElementById("cancel");
@@ -584,7 +635,7 @@ python -m rss_archiveorg.web</pre>
     let abortController = null;
     let activeFilter = "all";
     let collectedResults = [];
-    let proxiesAvailable = false;
+    let proxiesFileAvailable = false;
     let primarySocialFilters = [];
     let resultIndexBySite = new Map();
 
@@ -595,10 +646,30 @@ python -m rss_archiveorg.web</pre>
         .filter((line) => line && !line.startsWith("#")).length;
     }
 
+    function countProxies(text) {
+      return text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#")).length;
+    }
+
+    function updateProxyCount() {
+      const count = countProxies(proxiesInput.value);
+      proxyCount.textContent = `${count} proxy${count === 1 ? "" : "s"}`;
+    }
+
+    function updateProxyPanel() {
+      const enabled = useProxiesInput.checked;
+      proxyInputs.hidden = !enabled;
+      useProxiesInput.disabled = running;
+      proxiesInput.disabled = running || !enabled;
+      proxiesFileInput.disabled = running || !enabled;
+      updateProxyCount();
+    }
+
     function updateUrlCount() {
       const count = countUrls(urlsInput.value);
-      urlCount.textContent = `${count} URL${count === 1 ? "" : "s"} · máximo 200`;
-      urlCount.style.color = count > 200 ? "#ffb4b4" : "";
+      urlCount.textContent = `${count} URL${count === 1 ? "" : "s"}`;
     }
 
     function setRunning(active) {
@@ -606,9 +677,10 @@ python -m rss_archiveorg.web</pre>
       submitBtn.disabled = active;
       cancelBtn.hidden = !active;
       urlsInput.disabled = active;
+      if (urlsFileInput) urlsFileInput.disabled = active;
       delayInput.disabled = active;
       timestampInput.disabled = active;
-      useProxiesInput.disabled = active || !proxiesAvailable;
+      updateProxyPanel();
       progressEl.classList.toggle("active", active);
     }
 
@@ -805,18 +877,13 @@ python -m rss_archiveorg.web</pre>
       delayInput.min = String(config.min_delay);
       delayInput.value = String(config.default_delay);
       delayValue.textContent = String(config.default_delay);
-      proxiesAvailable = config.proxies_available;
+      proxiesFileAvailable = config.proxies_file_available;
       primarySocialFilters = config.primary_social_filters || [];
       buildSocialChips(primarySocialFilters);
-      if (proxiesAvailable) {
-        const count = config.proxies_count || 0;
-        proxyHint.textContent = `${count} proxy(s) cargados desde proxies.txt. Se rotan entre sitios y ante errores 429/5xx.`;
-      } else if (config.proxies_file_exists) {
-        proxyHint.textContent = "Existe proxies.txt pero no tiene proxys válidos. Revisa el formato.";
-      } else {
-        proxyHint.textContent = "No hay proxies.txt. Copia proxies.example.txt para activar rotación en localhost.";
-      }
-      useProxiesInput.disabled = !proxiesAvailable;
+      proxyHint.textContent = proxiesFileAvailable
+        ? "Pega proxys, sube un .txt o deja vacío para usar proxies.txt. Ciclo: IP propia → proxy 1 → proxy 2 → …"
+        : "Pega proxys o sube un .txt (host:port:user:pass). Ciclo: IP propia → proxy 1 → proxy 2 → …";
+      updateProxyPanel();
     }
 
     function validateTimestamp(value) {
@@ -833,6 +900,7 @@ python -m rss_archiveorg.web</pre>
         urls_text: urlsText,
         delay: Number(delayInput.value),
         use_proxies: useProxiesInput.checked,
+        proxies_text: useProxiesInput.checked ? proxiesInput.value : null,
         timestamp: timestampInput.value.trim() || null,
       };
     }
@@ -919,14 +987,19 @@ python -m rss_archiveorg.web</pre>
         showBanner("Añade al menos una URL.", "error");
         return;
       }
-      if (count > 200) {
-        showBanner("El máximo es 200 URLs por petición.", "error");
-        return;
-      }
 
       const timestampError = validateTimestamp(timestampInput.value);
       if (timestampError) {
         showBanner(timestampError, "error");
+        return;
+      }
+
+      if (
+        useProxiesInput.checked
+        && countProxies(proxiesInput.value) < 1
+        && !proxiesFileAvailable
+      ) {
+        showBanner("Pega al menos un proxy o sube un archivo .txt.", "error");
         return;
       }
 
@@ -1009,6 +1082,34 @@ python -m rss_archiveorg.web</pre>
     }
 
     urlsInput.addEventListener("input", updateUrlCount);
+    urlsFileInput.addEventListener("change", async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        urlsInput.value = await file.text();
+        urlsFileName.textContent = file.name;
+        updateUrlCount();
+      } catch (_) {
+        showBanner("No se pudo leer el listado de URLs.", "error");
+      }
+    });
+    useProxiesInput.addEventListener("change", updateProxyPanel);
+    proxiesInput.addEventListener("input", updateProxyCount);
+    proxiesFileInput.addEventListener("change", async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        proxiesInput.value = await file.text();
+        proxyFileName.textContent = file.name;
+        updateProxyCount();
+        if (!useProxiesInput.checked) {
+          useProxiesInput.checked = true;
+          updateProxyPanel();
+        }
+      } catch (_) {
+        showBanner("No se pudo leer el archivo de proxys.", "error");
+      }
+    });
     delayInput.addEventListener("input", () => {
       delayValue.textContent = delayInput.value;
     });

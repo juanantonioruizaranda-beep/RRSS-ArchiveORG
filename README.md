@@ -18,9 +18,9 @@ python -m rss_archiveorg.web
 
 Abre `http://localhost:8000`. Desde ahí puedes:
 
-- Pegar entre **1 y 200 URLs** (una por línea)
+- Pegar o **subir un listado de URLs** (una por línea, sin tope de 200)
 - Ajustar la **espera entre peticiones** (mínimo **3 s** para reducir bloqueos de archive.org)
-- Activar o desactivar **proxys** (`proxies.txt`)
+- Activar **proxys cíclicos**: pegar (copiar/pegar), **subir un `.txt`**, o usar `proxies.txt` del servidor. El ciclo es **IP propia → proxy 1 → proxy 2 → …**
 - Ver cada resultado en cuanto termina, con avisos si la web falla o no tiene RRSS/correo
 - **Cancelar** un lote en curso
 - **Filtrar** resultados (con datos / sin datos / errores)
