@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
   <title>RSS-ArchiveORG</title>
   <style>
     :root {
@@ -318,6 +319,46 @@
     }
 
     a { color: #9ec5ff; }
+
+    .data-filter-panel {
+      display: none;
+      margin-bottom: 14px;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+    }
+
+    .data-filter-panel.show { display: block; }
+
+    .chip-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--muted);
+      font-size: 0.86rem;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .chip input { accent-color: var(--accent); }
+
+    .chip.active {
+      color: #cfe0ff;
+      border-color: rgba(79, 140, 255, 0.35);
+      background: rgba(79, 140, 255, 0.12);
+    }
   </style>
 </head>
 <body>
@@ -326,7 +367,7 @@
       <h1>RSS-ArchiveORG</h1>
       <p>
         Extrae redes sociales y correos corporativos desde snapshots de
-        <a href="https://web.archive.org/" target="_blank" rel="noreferrer">archive.org</a>.
+        <a href="https://web.archive.org/" target="_blank" rel="nofollow noopener noreferrer">archive.org</a>.
         Añade entre 1 y 200 URLs, configura la espera entre peticiones y lanza el lote.
       </p>
     </header>
@@ -380,6 +421,22 @@
           </div>
         </div>
 
+        <div class="data-filter-panel" id="data-filter-panel">
+          <strong>Mostrar sitios con:</strong>
+          <p class="hint">Si no marcas nada, se muestran todos los que tienen algún dato. Si marcas opciones, el sitio debe tener al menos una.</p>
+          <div class="chip-grid" id="social-chips"></div>
+          <div class="chip-grid" id="email-chips">
+            <label class="chip" data-criterion="corporate_email">
+              <input type="checkbox" value="corporate_email">
+              Correo corporativo
+            </label>
+            <label class="chip" data-criterion="any_email">
+              <input type="checkbox" value="any_email">
+              Cualquier correo
+            </label>
+          </div>
+        </div>
+
         <div class="progress" id="progress">
           <strong id="progress-label">Procesando…</strong>
           <div class="progress-bar"><span id="progress-bar"></span></div>
@@ -410,6 +467,9 @@
     const progressBar = document.getElementById("progress-bar");
     const statusBanner = document.getElementById("status-banner");
     const filtersEl = document.getElementById("filters");
+    const dataFilterPanel = document.getElementById("data-filter-panel");
+    const socialChipsEl = document.getElementById("social-chips");
+    const emailChipsEl = document.getElementById("email-chips");
     const exportJsonBtn = document.getElementById("export-json");
     const exportCsvBtn = document.getElementById("export-csv");
 
@@ -418,6 +478,8 @@
     let activeFilter = "all";
     let collectedResults = [];
     let proxiesAvailable = false;
+    let socialNetworks = [];
+    let resultIndexBySite = new Map();
 
     function countUrls(text) {
       return text
@@ -457,6 +519,7 @@
 
     function clearResults() {
       collectedResults = [];
+      resultIndexBySite = new Map();
       resultsEl.innerHTML = "";
       updateExportButtons();
     }
@@ -467,17 +530,75 @@
       return code;
     }
 
+    function getSelectedDataCriteria() {
+      const networks = Array.from(socialChipsEl.querySelectorAll("input:checked")).map((el) => el.value);
+      const wantCorporate = emailChipsEl.querySelector('input[value="corporate_email"]').checked;
+      const wantAnyEmail = emailChipsEl.querySelector('input[value="any_email"]').checked;
+      return { networks, wantCorporate, wantAnyEmail };
+    }
+
+    function hasDataCriteriaSelection(criteria) {
+      return criteria.networks.length > 0 || criteria.wantCorporate || criteria.wantAnyEmail;
+    }
+
+    function resultMatchesDataCriteria(data, criteria) {
+      if (data.status !== "ok") return false;
+      if (!hasDataCriteriaSelection(criteria)) return true;
+
+      const checks = [];
+      if (criteria.networks.length) {
+        checks.push(criteria.networks.some((network) => (data.social || {})[network]?.length));
+      }
+      if (criteria.wantCorporate) {
+        checks.push((data.corporate_emails || []).length > 0);
+      }
+      if (criteria.wantAnyEmail) {
+        checks.push((data.all_emails || []).length > 0);
+      }
+      return checks.some(Boolean);
+    }
+
+    function resultIsVisible(data) {
+      if (activeFilter === "all") return true;
+      if (activeFilter === "ok") {
+        return resultMatchesDataCriteria(data, getSelectedDataCriteria());
+      }
+      return data.status === activeFilter;
+    }
+
     function applyFilters() {
       document.querySelectorAll(".result").forEach((card) => {
-        const status = card.dataset.status;
-        card.classList.toggle("hidden", activeFilter !== "all" && activeFilter !== status);
+        const data = resultIndexBySite.get(card.dataset.site);
+        card.classList.toggle("hidden", !data || !resultIsVisible(data));
       });
+    }
+
+    function updateDataFilterPanel() {
+      dataFilterPanel.classList.toggle("show", activeFilter === "ok");
+    }
+
+    function syncChipStyles(container) {
+      container.querySelectorAll(".chip").forEach((chip) => {
+        const input = chip.querySelector("input");
+        chip.classList.toggle("active", Boolean(input?.checked));
+      });
+    }
+
+    function buildSocialChips(networks) {
+      socialChipsEl.innerHTML = networks.map((network) => `
+        <label class="chip" data-criterion="${escapeAttr(network)}">
+          <input type="checkbox" value="${escapeAttr(network)}">
+          ${escapeHtml(network)}
+        </label>
+      `).join("");
     }
 
     function renderResult(data) {
       const card = document.createElement("article");
       card.className = "result";
       card.dataset.status = data.status;
+      card.dataset.site = data.site;
+      resultIndexBySite.set(data.site, data);
 
       const statusLabel = data.status === "ok" ? "Con datos" : data.status === "empty" ? "Sin datos" : "Error";
       let body = "";
@@ -494,7 +615,7 @@
       if (socialEntries.length) {
         body += `<div class="section-title">Redes sociales</div>`;
         for (const [network, links] of socialEntries) {
-          body += `<div><strong>${escapeHtml(network)}</strong><ul class="links">${links.map((link) => `<li><a href="${escapeAttr(link)}" target="_blank" rel="noreferrer">${escapeHtml(link)}</a></li>`).join("")}</ul></div>`;
+          body += `<div><strong>${escapeHtml(network)}</strong><ul class="links">${links.map((link) => `<li><a href="${escapeAttr(link)}" target="_blank" rel="nofollow noopener noreferrer">${escapeHtml(link)}</a></li>`).join("")}</ul></div>`;
         }
       }
 
@@ -507,7 +628,7 @@
       }
 
       if (data.snapshot) {
-        body += `<p class="hint">Snapshot: ${escapeHtml(data.snapshot.timestamp)} · <a href="${escapeAttr(data.snapshot.url)}" target="_blank" rel="noreferrer">ver en archive.org</a></p>`;
+        body += `<p class="hint">Snapshot: ${escapeHtml(data.snapshot.timestamp)} · <a href="${escapeAttr(data.snapshot.url)}" target="_blank" rel="nofollow noopener noreferrer">ver en archive.org</a></p>`;
       }
 
       card.innerHTML = `
@@ -541,6 +662,8 @@
       delayInput.value = String(config.default_delay);
       delayValue.textContent = String(config.default_delay);
       proxiesAvailable = config.proxies_available;
+      socialNetworks = config.social_networks || [];
+      buildSocialChips(socialNetworks);
       proxyHint.textContent = proxiesAvailable
         ? "Archivo proxies.txt detectado."
         : "No hay proxies.txt. Crea uno a partir de proxies.example.txt si quieres rotación.";
@@ -719,7 +842,15 @@
       filtersEl.querySelectorAll(".filter-btn").forEach((item) => {
         item.classList.toggle("active", item === button);
       });
+      updateDataFilterPanel();
       applyFilters();
+    });
+
+    dataFilterPanel.addEventListener("change", (event) => {
+      if (!(event.target instanceof HTMLInputElement)) return;
+      syncChipStyles(socialChipsEl);
+      syncChipStyles(emailChipsEl);
+      if (activeFilter === "ok") applyFilters();
     });
 
     loadConfig().then(updateUrlCount);

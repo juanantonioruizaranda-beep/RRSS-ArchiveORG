@@ -10,10 +10,12 @@ import threading
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, Response, StreamingResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
+from starlette.middleware.base import BaseHTTPMiddleware
 
+from rss_archiveorg.extractor import SOCIAL_NETWORKS
 from rss_archiveorg.io import parse_sites_text, results_to_csv_text, results_to_json_text
 from rss_archiveorg.pipeline import BatchCancelled, run_sites_batch
 
@@ -22,8 +24,18 @@ DEFAULT_DELAY_SECONDS = 5.0
 MAX_URLS = 200
 DEFAULT_PROXIES_PATH = Path("proxies.txt")
 TIMESTAMP_PATTERN = re.compile(r"^\d{8}(\d{6})?$")
+ROBOTS_HEADER_VALUE = "noindex, nofollow"
+
+
+class RobotsTagMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Robots-Tag"] = ROBOTS_HEADER_VALUE
+        return response
+
 
 app = FastAPI(title="RSS-ArchiveORG", version="0.3.0")
+app.add_middleware(RobotsTagMiddleware)
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -92,7 +104,18 @@ def _parse_request_urls(urls_text: str) -> list[str]:
 @app.get("/", response_class=HTMLResponse)
 def landing_page() -> HTMLResponse:
     index_path = STATIC_DIR / "index.html"
-    return HTMLResponse(index_path.read_text(encoding="utf-8"))
+    return HTMLResponse(
+        index_path.read_text(encoding="utf-8"),
+        headers={"X-Robots-Tag": ROBOTS_HEADER_VALUE},
+    )
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+def robots_txt() -> PlainTextResponse:
+    return PlainTextResponse(
+        "User-agent: *\nDisallow: /\n",
+        headers={"X-Robots-Tag": ROBOTS_HEADER_VALUE},
+    )
 
 
 @app.get("/api/config")
@@ -102,6 +125,7 @@ def api_config() -> dict:
         "default_delay": DEFAULT_DELAY_SECONDS,
         "max_urls": MAX_URLS,
         "proxies_available": DEFAULT_PROXIES_PATH.exists(),
+        "social_networks": sorted(SOCIAL_NETWORKS.keys()),
     }
 
 
