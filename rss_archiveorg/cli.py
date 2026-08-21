@@ -113,6 +113,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Base seconds for exponential backoff between retries (default: 2).",
     )
     parser.add_argument(
+        "--backoff-max",
+        type=float,
+        default=60.0,
+        help="Cap in seconds for the backoff between retries (default: 60).",
+    )
+    parser.add_argument(
         "--delay",
         type=float,
         default=0.0,
@@ -144,6 +150,7 @@ def main(argv: List[str] | None = None) -> int:
         timeout=args.timeout,
         max_retries=args.max_retries,
         backoff=args.backoff,
+        backoff_max=args.backoff_max,
     )
     results: List[Dict] = []
     for index, site in enumerate(sites, start=1):

@@ -14,6 +14,7 @@ AVAILABILITY_API = "https://archive.org/wayback/available"
 DEFAULT_TIMEOUT = 30
 DEFAULT_MAX_RETRIES = 4
 DEFAULT_BACKOFF = 2.0
+DEFAULT_BACKOFF_MAX = 60.0
 USER_AGENT = "RSS-ArchiveORG/0.1 (+https://github.com/juanantonioruizaranda-beep/RSS-ArchiveORG)"
 
 # Status codes worth retrying: archive.org throttles content endpoints with 429
@@ -44,10 +45,12 @@ class WaybackClient:
         session: Optional[requests.Session] = None,
         max_retries: int = DEFAULT_MAX_RETRIES,
         backoff: float = DEFAULT_BACKOFF,
+        backoff_max: float = DEFAULT_BACKOFF_MAX,
     ):
         self.timeout = timeout
         self.max_retries = max_retries
         self.backoff = backoff
+        self.backoff_max = backoff_max
         self.session = session or requests.Session()
         self.session.headers.setdefault("User-Agent", USER_AGENT)
 
@@ -68,7 +71,7 @@ class WaybackClient:
                 )
                 retry_after = self._retry_after_seconds(resp)
             if attempt < self.max_retries:
-                delay = retry_after or self.backoff * (2 ** attempt)
+                delay = retry_after or min(self.backoff * (2 ** attempt), self.backoff_max)
                 time.sleep(delay)
         assert last_exc is not None
         raise last_exc
