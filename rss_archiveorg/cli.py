@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from .extractor import extract_social_links
+from .proxy import ProxyPool, load_proxies
 from .wayback import WaybackClient, WaybackError
 
 
@@ -125,6 +126,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Seconds to wait between sites to stay under archive.org rate limits.",
     )
     parser.add_argument(
+        "--proxies",
+        type=Path,
+        metavar="FILE",
+        help="Path to a proxy list (host:port or host:port:user:pass per line). "
+        "Proxies rotate on 429/5xx errors and between sites.",
+    )
+    parser.add_argument(
         "-v", "--verbose",
         action="store_true",
         help="Print progress to stderr while processing.",
@@ -146,11 +154,28 @@ def main(argv: List[str] | None = None) -> int:
         print("error: no websites to process", file=sys.stderr)
         return 2
 
+    proxy_pool = None
+    if args.proxies is not None:
+        if not args.proxies.exists():
+            print(f"error: proxy file not found: {args.proxies}", file=sys.stderr)
+            return 2
+        proxies = load_proxies(args.proxies)
+        if not proxies:
+            print(f"error: no proxies found in {args.proxies}", file=sys.stderr)
+            return 2
+        proxy_pool = ProxyPool(proxies)
+        if args.verbose:
+            print(
+                f"Using {len(proxy_pool)} proxy/proxies from {args.proxies}",
+                file=sys.stderr,
+            )
+
     client = WaybackClient(
         timeout=args.timeout,
         max_retries=args.max_retries,
         backoff=args.backoff,
         backoff_max=args.backoff_max,
+        proxy_pool=proxy_pool,
     )
     results: List[Dict] = []
     for index, site in enumerate(sites, start=1):
@@ -158,6 +183,11 @@ def main(argv: List[str] | None = None) -> int:
             time.sleep(args.delay)
         if args.verbose:
             print(f"[{index}/{len(sites)}] {site}", file=sys.stderr)
+        if proxy_pool is not None:
+            client.prepare_for_site()
+            if args.verbose:
+                proxy = proxy_pool.current
+                print(f"    proxy: {proxy.host}:{proxy.port}", file=sys.stderr)
         item = process_site(client, site, args.timestamp)
         if args.verbose:
             if item["error"]:

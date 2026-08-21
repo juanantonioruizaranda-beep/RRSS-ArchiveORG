@@ -6,9 +6,12 @@ import gzip
 import time
 import zlib
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import requests
+
+if TYPE_CHECKING:
+    from .proxy import ProxyPool
 
 AVAILABILITY_API = "https://archive.org/wayback/available"
 DEFAULT_TIMEOUT = 30
@@ -46,23 +49,32 @@ class WaybackClient:
         max_retries: int = DEFAULT_MAX_RETRIES,
         backoff: float = DEFAULT_BACKOFF,
         backoff_max: float = DEFAULT_BACKOFF_MAX,
+        proxy_pool: Optional["ProxyPool"] = None,
     ):
         self.timeout = timeout
         self.max_retries = max_retries
         self.backoff = backoff
         self.backoff_max = backoff_max
+        self.proxy_pool = proxy_pool
         self.session = session or requests.Session()
         self.session.headers.setdefault("User-Agent", USER_AGENT)
+        if self.proxy_pool is not None:
+            self.proxy_pool.apply_to_session(self.session)
 
     def _get(self, url: str, params: Optional[dict] = None) -> requests.Response:
         """GET with retry/backoff for throttling (429) and transient 5xx errors."""
         last_exc: Optional[Exception] = None
         for attempt in range(self.max_retries + 1):
+            if self.proxy_pool is not None:
+                self.proxy_pool.apply_to_session(self.session)
+
             retry_after: Optional[float] = None
             try:
                 resp = self.session.get(url, params=params, timeout=self.timeout)
             except requests.RequestException as exc:
                 last_exc = exc
+                if self.proxy_pool is not None:
+                    self.proxy_pool.rotate()
             else:
                 if resp.status_code not in _RETRYABLE_STATUS:
                     return resp
@@ -70,11 +82,19 @@ class WaybackClient:
                     f"{resp.status_code} {resp.reason}", response=resp
                 )
                 retry_after = self._retry_after_seconds(resp)
+                if self.proxy_pool is not None:
+                    self.proxy_pool.rotate()
             if attempt < self.max_retries:
                 delay = retry_after or min(self.backoff * (2 ** attempt), self.backoff_max)
                 time.sleep(delay)
         assert last_exc is not None
         raise last_exc
+
+    def prepare_for_site(self) -> None:
+        """Rotate to the next proxy before processing a new site."""
+        if self.proxy_pool is not None:
+            self.proxy_pool.rotate_for_site()
+            self.proxy_pool.apply_to_session(self.session)
 
     @staticmethod
     def _retry_after_seconds(resp: requests.Response) -> Optional[float]:

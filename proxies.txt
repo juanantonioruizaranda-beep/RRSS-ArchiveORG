@@ -1,0 +1,12 @@
+# HTTP proxies for archive.org (host:port:user:pass)
+# Rotate automatically on 429/5xx or connection errors.
+31.59.20.176:6754:loykprsf:fjneokaotzmc
+31.56.127.193:7684:loykprsf:fjneokaotzmc
+45.38.107.97:6014:loykprsf:fjneokaotzmc
+198.105.121.200:6462:loykprsf:fjneokaotzmc
+64.137.96.74:6641:loykprsf:fjneokaotzmc
+198.23.243.226:6361:loykprsf:fjneokaotzmc
+38.154.185.97:6370:loykprsf:fjneokaotzmc
+84.247.60.125:6095:loykprsf:fjneokaotzmc
+142.111.67.146:5611:loykprsf:fjneokaotzmc
+191.96.254.138:6185:loykprsf:fjneokaotzmc
