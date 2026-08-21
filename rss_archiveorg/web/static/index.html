@@ -186,6 +186,35 @@
       font-size: 0.88rem;
     }
 
+    .proxy-panel {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .proxy-inputs {
+      display: grid;
+      gap: 10px;
+    }
+
+    .proxy-inputs textarea {
+      min-height: 120px;
+    }
+
+    .file-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .file-btn input[type="file"] {
+      display: none;
+    }
+
     .result-actions {
       margin-top: 12px;
     }
@@ -402,11 +431,32 @@
             <p class="hint">Si se indica, archive.org devolverá el snapshot más cercano a esa fecha.</p>
           </div>
 
-          <label class="checkbox">
-            <input id="use-proxies" type="checkbox">
-            <span>Usar proxys (<code>proxies.txt</code>)</span>
-          </label>
-          <p class="hint" id="proxy-hint"></p>
+          <div class="proxy-panel">
+            <label class="checkbox">
+              <input id="use-proxies" type="checkbox">
+              <span>Usar rotación de proxys</span>
+            </label>
+
+            <div class="proxy-inputs" id="proxy-inputs" hidden>
+              <div>
+                <label for="proxies">Proxys (copiar y pegar, uno por línea)</label>
+                <textarea id="proxies" placeholder="203.0.113.10:8080:usuario:contraseña&#10;203.0.113.11:8080:usuario:contraseña"></textarea>
+                <p class="hint" id="proxy-count">0 proxys</p>
+              </div>
+
+              <div class="row">
+                <label class="file-btn secondary small" for="proxies-file">
+                  Subir archivo .txt
+                </label>
+                <input id="proxies-file" type="file" accept=".txt,text/plain">
+                <span class="hint" id="proxy-file-name"></span>
+              </div>
+
+              <p class="hint" id="proxy-hint">
+                Formato por línea: <code>host:port</code> o <code>host:port:usuario:contraseña</code>.
+              </p>
+            </div>
+          </div>
 
           <div class="row">
             <button id="submit" class="primary" type="button">Enviar petición</button>
@@ -468,6 +518,11 @@
     const delayValue = document.getElementById("delay-value");
     const timestampInput = document.getElementById("timestamp");
     const useProxiesInput = document.getElementById("use-proxies");
+    const proxyInputs = document.getElementById("proxy-inputs");
+    const proxiesInput = document.getElementById("proxies");
+    const proxiesFileInput = document.getElementById("proxies-file");
+    const proxyCount = document.getElementById("proxy-count");
+    const proxyFileName = document.getElementById("proxy-file-name");
     const proxyHint = document.getElementById("proxy-hint");
     const submitBtn = document.getElementById("submit");
     const cancelBtn = document.getElementById("cancel");
@@ -488,7 +543,7 @@
     let abortController = null;
     let activeFilter = "all";
     let collectedResults = [];
-    let proxiesAvailable = false;
+    let proxiesFileAvailable = false;
     let primarySocialFilters = [];
     let resultIndexBySite = new Map();
 
@@ -497,6 +552,27 @@
         .split("\n")
         .map((line) => line.trim())
         .filter((line) => line && !line.startsWith("#")).length;
+    }
+
+    function countProxies(text) {
+      return text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#")).length;
+    }
+
+    function updateProxyCount() {
+      const count = countProxies(proxiesInput.value);
+      proxyCount.textContent = `${count} proxy${count === 1 ? "" : "s"}`;
+    }
+
+    function updateProxyPanel() {
+      const enabled = useProxiesInput.checked;
+      proxyInputs.hidden = !enabled;
+      useProxiesInput.disabled = running;
+      proxiesInput.disabled = running || !enabled;
+      proxiesFileInput.disabled = running || !enabled;
+      updateProxyCount();
     }
 
     function updateUrlCount() {
@@ -512,7 +588,7 @@
       urlsInput.disabled = active;
       delayInput.disabled = active;
       timestampInput.disabled = active;
-      useProxiesInput.disabled = active || !proxiesAvailable;
+      updateProxyPanel();
       progressEl.classList.toggle("active", active);
     }
 
@@ -709,13 +785,13 @@
       delayInput.min = String(config.min_delay);
       delayInput.value = String(config.default_delay);
       delayValue.textContent = String(config.default_delay);
-      proxiesAvailable = config.proxies_available;
+      proxiesFileAvailable = config.proxies_file_available;
       primarySocialFilters = config.primary_social_filters || [];
       buildSocialChips(primarySocialFilters);
-      proxyHint.textContent = proxiesAvailable
-        ? "Archivo proxies.txt detectado."
-        : "No hay proxies.txt. Crea uno a partir de proxies.example.txt si quieres rotación.";
-      useProxiesInput.disabled = !proxiesAvailable;
+      proxyHint.textContent = proxiesFileAvailable
+        ? "Pega proxys manualmente, sube un .txt o deja vacío para usar proxies.txt del servidor."
+        : "Pega proxys manualmente o sube un archivo .txt (formato host:port:user:pass).";
+      updateProxyPanel();
     }
 
     function validateTimestamp(value) {
@@ -732,6 +808,7 @@
         urls_text: urlsText,
         delay: Number(delayInput.value),
         use_proxies: useProxiesInput.checked,
+        proxies_text: useProxiesInput.checked ? proxiesInput.value : null,
         timestamp: timestampInput.value.trim() || null,
       };
     }
@@ -829,6 +906,15 @@
         return;
       }
 
+      if (
+        useProxiesInput.checked
+        && countProxies(proxiesInput.value) < 1
+        && !proxiesFileAvailable
+      ) {
+        showBanner("Pega al menos un proxy o sube un archivo .txt.", "error");
+        return;
+      }
+
       clearResults();
       await processExtraction(buildPayload(urlsInput.value));
     }
@@ -908,6 +994,23 @@
     }
 
     urlsInput.addEventListener("input", updateUrlCount);
+    useProxiesInput.addEventListener("change", updateProxyPanel);
+    proxiesInput.addEventListener("input", updateProxyCount);
+    proxiesFileInput.addEventListener("change", async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        proxiesInput.value = await file.text();
+        proxyFileName.textContent = file.name;
+        updateProxyCount();
+        if (!useProxiesInput.checked) {
+          useProxiesInput.checked = true;
+          updateProxyPanel();
+        }
+      } catch (_) {
+        showBanner("No se pudo leer el archivo de proxys.", "error");
+      }
+    });
     delayInput.addEventListener("input", () => {
       delayValue.textContent = delayInput.value;
     });

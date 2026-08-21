@@ -12,7 +12,7 @@ from .extractor import extract_social_links
 from .extractors.corporate_email import extract_emails
 from .io import read_sites
 from .models import SiteResult, SnapshotInfo
-from .proxy import ProxyPool, load_proxies
+from .proxy import Proxy, ProxyPool, load_proxies
 from .utils import domain_from_url
 from .wayback import WaybackClient, WaybackError
 
@@ -41,13 +41,18 @@ def process_site(
     return result
 
 
-def build_client(config: RunConfig) -> tuple[WaybackClient, ProxyPool | None]:
+def build_client(
+    config: RunConfig,
+    *,
+    proxies: list[Proxy] | None = None,
+) -> tuple[WaybackClient, ProxyPool | None]:
     """Create a configured Wayback client and optional proxy pool."""
     proxy_pool: ProxyPool | None = None
-    if config.proxies_path is not None:
+    if proxies is None and config.proxies_path is not None:
         proxies = load_proxies(config.proxies_path)
         if not proxies:
             raise ValueError(f"no proxies found in {config.proxies_path}")
+    if proxies:
         proxy_pool = ProxyPool(proxies)
 
     client = WaybackClient(
@@ -96,6 +101,7 @@ def run_sites_batch(
     backoff_max: float = 60.0,
     delay: float = 0.0,
     proxies_path: Path | None = None,
+    proxies: list[Proxy] | None = None,
     log: Callable[[str], None] | None = None,
     on_result: Callable[[SiteResult, int, int], None] | None = None,
     should_cancel: Callable[[], bool] | None = None,
@@ -115,14 +121,16 @@ def run_sites_batch(
             delay=delay,
             proxies_path=proxies_path,
             verbose=False,
-        )
+        ),
+        proxies=proxies,
     )
 
     if not sites:
         raise ValueError("no websites to process")
 
     if log and proxy_pool is not None:
-        log(f"Using {len(proxy_pool)} proxy/proxies from {proxies_path}")
+        source = "custom list" if proxies else str(proxies_path)
+        log(f"Using {len(proxy_pool)} proxy/proxies from {source}")
 
     results: list[SiteResult] = []
     total = len(sites)

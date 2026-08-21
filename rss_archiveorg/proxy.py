@@ -108,15 +108,52 @@ def _warn_if_world_readable(path: Path) -> None:
 def load_proxies(path: Path) -> list[Proxy]:
     """Load proxies from a newline-delimited text file."""
     _warn_if_world_readable(path)
+    return parse_proxies_text(
+        path.read_text(encoding="utf-8"),
+        source_label=str(path),
+    )
+
+
+def parse_proxies_text(raw: str, *, source_label: str = "input") -> list[Proxy]:
+    """Parse newline-delimited proxy lines from pasted text or file contents."""
     proxies: list[Proxy] = []
-    for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+    for line_no, line in enumerate(raw.splitlines(), start=1):
         try:
             proxy = Proxy.parse(line)
         except ValueError as exc:
-            raise ValueError(f"{path}:{line_no}: {exc}") from exc
+            raise ValueError(f"{source_label}:{line_no}: {exc}") from exc
         if proxy is not None:
             proxies.append(proxy)
     return proxies
+
+
+def resolve_proxies_for_run(
+    *,
+    enabled: bool,
+    proxies_text: str | None = None,
+    fallback_path: Path | None = None,
+) -> list[Proxy] | None:
+    """Resolve proxy list from pasted text or an optional on-disk fallback file."""
+    if not enabled:
+        return None
+
+    text = (proxies_text or "").strip()
+    if text:
+        proxies = parse_proxies_text(text, source_label="proxies")
+        if not proxies:
+            raise ValueError("Añade al menos un proxy válido")
+        return proxies
+
+    if fallback_path is not None and fallback_path.exists():
+        proxies = load_proxies(fallback_path)
+        if not proxies:
+            raise ValueError(f"no proxies found in {fallback_path}")
+        return proxies
+
+    raise ValueError(
+        "Pega tus proxys (uno por línea) o sube un archivo .txt con formato "
+        "host:port:user:pass"
+    )
 
 
 class ProxyPool:

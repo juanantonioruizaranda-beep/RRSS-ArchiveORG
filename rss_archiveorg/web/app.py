@@ -18,6 +18,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from rss_archiveorg.extractor import SOCIAL_NETWORKS
 from rss_archiveorg.io import parse_sites_text, results_to_csv_text, results_to_json_text
 from rss_archiveorg.pipeline import BatchCancelled, run_sites_batch
+from rss_archiveorg.proxy import resolve_proxies_for_run
 
 MIN_DELAY_SECONDS = 3.0
 DEFAULT_DELAY_SECONDS = 5.0
@@ -51,6 +52,7 @@ class ExtractRequest(BaseModel):
     urls_text: str = Field(..., min_length=1)
     delay: float = Field(default=DEFAULT_DELAY_SECONDS, ge=MIN_DELAY_SECONDS, le=120.0)
     use_proxies: bool = False
+    proxies_text: str | None = None
     timestamp: str | None = None
 
     @field_validator("urls_text")
@@ -78,18 +80,15 @@ class ExportRequest(BaseModel):
     format: str = Field(pattern="^(json|csv)$")
 
 
-def _resolve_proxies_path(use_proxies: bool) -> Path | None:
-    if not use_proxies:
-        return None
-    if not DEFAULT_PROXIES_PATH.exists():
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Se activaron los proxys pero no existe proxies.txt en la raíz del proyecto. "
-                "Copia proxies.example.txt y configura tus proxys."
-            ),
+def _resolve_proxies(use_proxies: bool, proxies_text: str | None) -> list | None:
+    try:
+        return resolve_proxies_for_run(
+            enabled=use_proxies,
+            proxies_text=proxies_text,
+            fallback_path=DEFAULT_PROXIES_PATH,
         )
-    return DEFAULT_PROXIES_PATH
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def _parse_request_urls(urls_text: str) -> list[str]:
@@ -131,7 +130,8 @@ def api_config() -> dict:
         "min_delay": MIN_DELAY_SECONDS,
         "default_delay": DEFAULT_DELAY_SECONDS,
         "max_urls": MAX_URLS,
-        "proxies_available": DEFAULT_PROXIES_PATH.exists(),
+        "proxies_file_available": DEFAULT_PROXIES_PATH.exists(),
+        "proxy_format": "host:port:user:pass",
         "social_networks": sorted(SOCIAL_NETWORKS.keys()),
         "primary_social_filters": PRIMARY_SOCIAL_FILTERS,
     }
@@ -161,7 +161,7 @@ def export_results(request: ExportRequest) -> Response:
 @app.post("/api/extract")
 async def extract_stream(http_request: Request, request: ExtractRequest) -> StreamingResponse:
     sites = _parse_request_urls(request.urls_text)
-    proxies_path = _resolve_proxies_path(request.use_proxies)
+    proxies = _resolve_proxies(request.use_proxies, request.proxies_text)
     event_queue: queue.Queue[str | None] = queue.Queue()
     cancel_event = threading.Event()
 
@@ -178,7 +178,7 @@ async def extract_stream(http_request: Request, request: ExtractRequest) -> Stre
             run_sites_batch(
                 sites,
                 delay=request.delay,
-                proxies_path=proxies_path,
+                proxies=proxies,
                 timestamp=request.timestamp,
                 should_cancel=cancel_event.is_set,
                 on_result=on_result,

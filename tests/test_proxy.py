@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from rss_archiveorg.proxy import Proxy, ProxyPool, load_proxies
+from rss_archiveorg.proxy import Proxy, ProxyPool, load_proxies, parse_proxies_text, resolve_proxies_for_run
 
 
 def test_proxy_parse_with_auth():
@@ -75,6 +75,43 @@ def test_load_proxies_reports_line_number(tmp_path: Path):
     path.write_text("bad-line\n", encoding="utf-8")
     with pytest.raises(ValueError, match=r":1:"):
         load_proxies(path)
+
+
+def test_parse_proxies_text():
+    proxies = parse_proxies_text(
+        "# comment\n203.0.113.10:8080:user:pass\n\n127.0.0.1:3128\n",
+        source_label="proxies",
+    )
+    assert len(proxies) == 2
+    assert proxies[0].host == "203.0.113.10"
+
+
+def test_resolve_proxies_for_run_uses_pasted_text():
+    proxies = resolve_proxies_for_run(
+        enabled=True,
+        proxies_text="203.0.113.10:8080:user:pass",
+    )
+    assert len(proxies) == 1
+
+
+def test_resolve_proxies_for_run_uses_fallback_file(tmp_path: Path):
+    path = tmp_path / "proxies.txt"
+    path.write_text("203.0.113.10:8080:user:pass\n", encoding="utf-8")
+    proxies = resolve_proxies_for_run(
+        enabled=True,
+        proxies_text="",
+        fallback_path=path,
+    )
+    assert len(proxies) == 1
+
+
+def test_resolve_proxies_for_run_requires_input_without_fallback():
+    with pytest.raises(ValueError, match="Pega tus proxys"):
+        resolve_proxies_for_run(enabled=True, proxies_text="", fallback_path=None)
+
+
+def test_resolve_proxies_for_run_disabled():
+    assert resolve_proxies_for_run(enabled=False, proxies_text="203.0.113.10:8080") is None
 
 
 def test_proxy_pool_rotates_round_robin():

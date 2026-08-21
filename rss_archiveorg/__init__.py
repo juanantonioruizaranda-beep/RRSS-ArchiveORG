@@ -4,7 +4,7 @@ using snapshots stored in the Internet Archive's Wayback Machine (archive.org).
 
 from .extractor import SOCIAL_NETWORKS, extract_social_links
 from .models import SiteResult, SnapshotInfo
-from .proxy import Proxy, ProxyPool, load_proxies
+from .proxy import Proxy, ProxyPool, load_proxies, parse_proxies_text, resolve_proxies_for_run
 from .wayback import WaybackClient, WaybackError, Snapshot
 
 __all__ = [
@@ -15,6 +15,8 @@ __all__ = [
     "Proxy",
     "ProxyPool",
     "load_proxies",
+    "parse_proxies_text",
+    "resolve_proxies_for_run",
     "WaybackClient",
     "WaybackError",
     "Snapshot",

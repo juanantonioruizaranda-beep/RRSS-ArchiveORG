@@ -20,7 +20,7 @@ Abre `http://localhost:8000`. Desde ahí puedes:
 
 - Pegar entre **1 y 200 URLs** (una por línea)
 - Ajustar la **espera entre peticiones** (mínimo **3 s** para reducir bloqueos de archive.org)
-- Activar o desactivar **proxys** (`proxies.txt`)
+- Activar **rotación de proxys**: pegar manualmente (copiar/pegar), **subir un `.txt`**, o usar `proxies.txt` del servidor si está vacío el campo
 - Ver cada resultado en cuanto termina, con avisos si la web falla o no tiene RRSS/correo
 - **Cancelar** un lote en curso
 - **Filtrar** resultados (con datos / sin datos / errores)
