@@ -25,6 +25,13 @@ MAX_URLS = 200
 DEFAULT_PROXIES_PATH = Path("proxies.txt")
 TIMESTAMP_PATTERN = re.compile(r"^\d{8}(\d{6})?$")
 ROBOTS_HEADER_VALUE = "noindex, nofollow"
+PRIMARY_SOCIAL_FILTERS = [
+    {"id": "twitter", "label": "Twitter / X"},
+    {"id": "instagram", "label": "Instagram"},
+    {"id": "youtube", "label": "YouTube"},
+    {"id": "facebook", "label": "Facebook"},
+    {"id": "tiktok", "label": "TikTok"},
+]
 
 
 class RobotsTagMiddleware(BaseHTTPMiddleware):
@@ -126,6 +133,7 @@ def api_config() -> dict:
         "max_urls": MAX_URLS,
         "proxies_available": DEFAULT_PROXIES_PATH.exists(),
         "social_networks": sorted(SOCIAL_NETWORKS.keys()),
+        "primary_social_filters": PRIMARY_SOCIAL_FILTERS,
     }
 
 

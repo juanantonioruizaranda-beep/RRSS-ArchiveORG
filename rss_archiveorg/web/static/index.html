@@ -181,6 +181,15 @@
       cursor: not-allowed;
     }
 
+    button.small {
+      padding: 8px 12px;
+      font-size: 0.88rem;
+    }
+
+    .result-actions {
+      margin-top: 12px;
+    }
+
     .filter-btn {
       padding: 8px 12px;
       font-size: 0.88rem;
@@ -416,6 +425,7 @@
             <button class="filter-btn" data-filter="error" type="button">Errores</button>
           </div>
           <div class="toolbar-group">
+            <button id="retry-all" class="secondary small" type="button" hidden>Reintentar fallos</button>
             <button id="export-json" class="secondary" type="button" disabled>Exportar JSON</button>
             <button id="export-csv" class="secondary" type="button" disabled>Exportar CSV</button>
           </div>
@@ -472,13 +482,14 @@
     const emailChipsEl = document.getElementById("email-chips");
     const exportJsonBtn = document.getElementById("export-json");
     const exportCsvBtn = document.getElementById("export-csv");
+    const retryAllBtn = document.getElementById("retry-all");
 
     let running = false;
     let abortController = null;
     let activeFilter = "all";
     let collectedResults = [];
     let proxiesAvailable = false;
-    let socialNetworks = [];
+    let primarySocialFilters = [];
     let resultIndexBySite = new Map();
 
     function countUrls(text) {
@@ -510,6 +521,17 @@
       exportJsonBtn.disabled = !hasResults;
       exportCsvBtn.disabled = !hasResults;
       filtersEl.hidden = !hasResults;
+      updateRetryAllButton();
+    }
+
+    function updateRetryAllButton() {
+      const hasErrors = collectedResults.some((result) => result.status === "error");
+      retryAllBtn.hidden = !hasErrors;
+      retryAllBtn.disabled = running || !hasErrors;
+    }
+
+    function getFailedSites() {
+      return collectedResults.filter((result) => result.status === "error").map((result) => result.site);
     }
 
     function showBanner(message, kind) {
@@ -584,13 +606,38 @@
       });
     }
 
-    function buildSocialChips(networks) {
-      socialChipsEl.innerHTML = networks.map((network) => `
-        <label class="chip" data-criterion="${escapeAttr(network)}">
-          <input type="checkbox" value="${escapeAttr(network)}">
-          ${escapeHtml(network)}
+    function buildSocialChips(filters) {
+      socialChipsEl.innerHTML = filters.map((filter) => `
+        <label class="chip" data-criterion="${escapeAttr(filter.id)}">
+          <input type="checkbox" value="${escapeAttr(filter.id)}">
+          ${escapeHtml(filter.label)}
         </label>
       `).join("");
+    }
+
+    function removeResultCard(site) {
+      const card = resultsEl.querySelector(`.result[data-site="${cssEscape(site)}"]`);
+      if (card) card.remove();
+    }
+
+    function cssEscape(value) {
+      if (window.CSS && typeof CSS.escape === "function") {
+        return CSS.escape(value);
+      }
+      return String(value).replaceAll('"', '\\"');
+    }
+
+    function upsertResult(data) {
+      const existingIndex = collectedResults.findIndex((result) => result.site === data.site);
+      if (existingIndex >= 0) {
+        collectedResults[existingIndex] = data;
+      } else {
+        collectedResults.push(data);
+      }
+      resultIndexBySite.set(data.site, data);
+      removeResultCard(data.site);
+      renderResult(data);
+      updateExportButtons();
     }
 
     function renderResult(data) {
@@ -605,6 +652,7 @@
 
       if (data.error) {
         body += `<p class="error-text">${escapeHtml(data.error)}</p>`;
+        body += `<div class="result-actions"><button class="secondary small retry-one" type="button" data-site="${escapeAttr(data.site)}">Reintentar</button></div>`;
       }
 
       if (data.warnings && data.warnings.length) {
@@ -662,8 +710,8 @@
       delayInput.value = String(config.default_delay);
       delayValue.textContent = String(config.default_delay);
       proxiesAvailable = config.proxies_available;
-      socialNetworks = config.social_networks || [];
-      buildSocialChips(socialNetworks);
+      primarySocialFilters = config.primary_social_filters || [];
+      buildSocialChips(primarySocialFilters);
       proxyHint.textContent = proxiesAvailable
         ? "Archivo proxies.txt detectado."
         : "No hay proxies.txt. Crea uno a partir de proxies.example.txt si quieres rotación.";
@@ -677,6 +725,91 @@
         return "El timestamp debe tener formato YYYYMMDD o YYYYMMDDhhmmss";
       }
       return null;
+    }
+
+    function buildPayload(urlsText) {
+      return {
+        urls_text: urlsText,
+        delay: Number(delayInput.value),
+        use_proxies: useProxiesInput.checked,
+        timestamp: timestampInput.value.trim() || null,
+      };
+    }
+
+    async function processExtraction(payload, { replace = false, showStartBanner = true } = {}) {
+      if (running) return false;
+
+      setRunning(true);
+      progressBar.style.width = "0%";
+      progressLabel.textContent = replace ? "Reintentando…" : "Iniciando…";
+      if (showStartBanner && !replace) {
+        showBanner("", "");
+        statusBanner.className = "status-banner";
+      }
+
+      abortController = new AbortController();
+
+      let response;
+      try {
+        response = await fetch("/api/extract", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: abortController.signal,
+        });
+      } catch (error) {
+        if (error.name === "AbortError") {
+          showBanner("Cancelando petición…", "warn");
+        } else {
+          showBanner("No se pudo conectar con el servidor.", "error");
+        }
+        setRunning(false);
+        abortController = null;
+        return false;
+      }
+
+      if (!response.ok) {
+        let message = "No se pudo iniciar la petición.";
+        try {
+          const body = await response.json();
+          if (body.detail) message = body.detail;
+        } catch (_) {}
+        showBanner(message, "error");
+        setRunning(false);
+        abortController = null;
+        return false;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          let boundary = buffer.indexOf("\n\n");
+          while (boundary !== -1) {
+            const chunk = buffer.slice(0, boundary);
+            buffer = buffer.slice(boundary + 2);
+            const line = chunk.split("\n").find((entry) => entry.startsWith("data: "));
+            if (line) {
+              handleEvent(JSON.parse(line.slice(6)), { replace });
+            }
+            boundary = buffer.indexOf("\n\n");
+          }
+        }
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          showBanner("Se perdió la conexión con el servidor.", "error");
+        }
+      }
+
+      setRunning(false);
+      abortController = null;
+      return true;
     }
 
     async function submitJob() {
@@ -697,96 +830,46 @@
       }
 
       clearResults();
-      showBanner("", "");
-      statusBanner.className = "status-banner";
-      setRunning(true);
-      progressBar.style.width = "0%";
-      progressLabel.textContent = "Iniciando…";
-
-      abortController = new AbortController();
-
-      const payload = {
-        urls_text: urlsInput.value,
-        delay: Number(delayInput.value),
-        use_proxies: useProxiesInput.checked,
-        timestamp: timestampInput.value.trim() || null,
-      };
-
-      let response;
-      try {
-        response = await fetch("/api/extract", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          signal: abortController.signal,
-        });
-      } catch (error) {
-        if (error.name === "AbortError") {
-          showBanner("Cancelando petición…", "warn");
-        } else {
-          showBanner("No se pudo conectar con el servidor.", "error");
-        }
-        setRunning(false);
-        return;
-      }
-
-      if (!response.ok) {
-        let message = "No se pudo iniciar la petición.";
-        try {
-          const body = await response.json();
-          if (body.detail) message = body.detail;
-        } catch (_) {}
-        showBanner(message, "error");
-        setRunning(false);
-        return;
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-
-          let boundary = buffer.indexOf("\n\n");
-          while (boundary !== -1) {
-            const chunk = buffer.slice(0, boundary);
-            buffer = buffer.slice(boundary + 2);
-            const line = chunk.split("\n").find((entry) => entry.startsWith("data: "));
-            if (line) {
-              handleEvent(JSON.parse(line.slice(6)));
-            }
-            boundary = buffer.indexOf("\n\n");
-          }
-        }
-      } catch (error) {
-        if (error.name !== "AbortError") {
-          showBanner("Se perdió la conexión con el servidor.", "error");
-        }
-      }
-
-      setRunning(false);
-      abortController = null;
+      await processExtraction(buildPayload(urlsInput.value));
     }
 
-    function handleEvent(payload) {
+    async function retrySites(sites) {
+      if (!sites.length) return;
+      if (running) return;
+
+      const timestampError = validateTimestamp(timestampInput.value);
+      if (timestampError) {
+        showBanner(timestampError, "error");
+        return;
+      }
+
+      const label = sites.length === 1 ? "sitio" : "sitios";
+      showBanner(`Reintentando ${sites.length} ${label}…`, "warn");
+      await processExtraction(buildPayload(sites.join("\n")), { replace: true, showStartBanner: false });
+    }
+
+    function handleEvent(payload, { replace = false } = {}) {
       if (payload.type === "result") {
-        collectedResults.push(payload);
-        renderResult(payload);
-        updateExportButtons();
+        if (replace) {
+          upsertResult(payload);
+        } else {
+          collectedResults.push(payload);
+          renderResult(payload);
+          updateExportButtons();
+        }
         const pct = Math.round((payload.index / payload.total) * 100);
         progressBar.style.width = `${pct}%`;
-        progressLabel.textContent = `Procesando ${payload.index} de ${payload.total}`;
+        progressLabel.textContent = replace
+          ? `Reintentando ${payload.index} de ${payload.total}`
+          : `Procesando ${payload.index} de ${payload.total}`;
         return;
       }
 
       if (payload.type === "done") {
         progressBar.style.width = "100%";
-        progressLabel.textContent = "Completado";
-        showBanner(`✅ ${payload.message}. ${payload.total} sitio(s) procesados.`, "done");
+        progressLabel.textContent = replace ? "Reintento completado" : "Completado";
+        const prefix = replace ? "✅ Reintento completado." : `✅ ${payload.message}.`;
+        showBanner(`${prefix} ${payload.total} sitio(s) procesados.`, "done");
         return;
       }
 
@@ -831,6 +914,12 @@
     submitBtn.addEventListener("click", submitJob);
     cancelBtn.addEventListener("click", () => {
       if (abortController) abortController.abort();
+    });
+    retryAllBtn.addEventListener("click", () => retrySites(getFailedSites()));
+    resultsEl.addEventListener("click", (event) => {
+      const button = event.target.closest(".retry-one");
+      if (!button || running) return;
+      retrySites([button.dataset.site]);
     });
     exportJsonBtn.addEventListener("click", () => exportResults("json"));
     exportCsvBtn.addEventListener("click", () => exportResults("csv"));

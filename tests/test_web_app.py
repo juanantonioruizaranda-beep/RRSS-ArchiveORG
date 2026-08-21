@@ -26,4 +26,7 @@ def test_api_config_exposes_social_networks():
     assert response.status_code == 200
     payload = response.json()
     assert "facebook" in payload["social_networks"]
+    labels = {item["label"] for item in payload["primary_social_filters"]}
+    assert "Twitter / X" in labels
+    assert "Instagram" in labels
     assert response.headers.get("X-Robots-Tag") == "noindex, nofollow"
