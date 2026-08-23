@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# Output
+*.out.json
+*.out.csv
+results.json
+results.csv
+
+# Secrets (copy proxies.example.txt -> proxies.txt locally)
+proxies.txt

@@ -1,0 +1,6 @@
+# One website per line. Blank lines and lines starting with # are ignored.
+# These are used to look up the closest archive.org snapshot and extract
+# social network (RRSS) links from the archived page.
+https://www.python.org
+https://www.wikipedia.org
+https://www.mozilla.org
