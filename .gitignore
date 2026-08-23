@@ -13,3 +13,6 @@ venv/
 *.out.csv
 results.json
 results.csv
+
+# Secrets (copy proxies.example.txt -> proxies.txt locally)
+proxies.txt

@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>RSS-ArchiveORG</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --panel-2: #243044;
+      --text: #e7ecf3;
+      --muted: #9aa8bc;
+      --accent: #4f8cff;
+      --accent-2: #36c2a5;
+      --danger: #ff6b6b;
+      --warn: #f0b429;
+      --ok: #3ddc84;
+      --border: rgba(255, 255, 255, 0.08);
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(79, 140, 255, 0.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(54, 194, 165, 0.12), transparent 24%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+
+    header { margin-bottom: 28px; }
+
+    header h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.8rem, 4vw, 2.5rem);
+      letter-spacing: -0.03em;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 720px;
+      line-height: 1.6;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1.1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 22px;
+      backdrop-filter: blur(8px);
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 0.92rem;
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+
+    textarea, input[type="text"] {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      padding: 14px;
+      font: 0.95rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    textarea {
+      min-height: 240px;
+      resize: vertical;
+    }
+
+    textarea:focus, input[type="text"]:focus {
+      outline: 2px solid rgba(79, 140, 255, 0.35);
+      border-color: rgba(79, 140, 255, 0.5);
+    }
+
+    .controls {
+      display: grid;
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      min-width: 180px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--panel-2);
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .checkbox {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    button, .filter-btn {
+      border: 0;
+      border-radius: 12px;
+      padding: 14px 18px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    button.primary {
+      background: linear-gradient(135deg, var(--accent), #6aa8ff);
+      color: white;
+    }
+
+    button.secondary {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    button.danger {
+      background: rgba(255, 107, 107, 0.18);
+      color: #ffb4b4;
+      border: 1px solid rgba(255, 107, 107, 0.35);
+    }
+
+    button:hover:not(:disabled), .filter-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    button:disabled, .filter-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    button.small {
+      padding: 8px 12px;
+      font-size: 0.88rem;
+    }
+
+    .proxy-panel {
+      display: grid;
+      gap: 12px;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .proxy-inputs {
+      display: grid;
+      gap: 10px;
+    }
+
+    .proxy-inputs textarea {
+      min-height: 120px;
+    }
+
+    .file-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .file-btn input[type="file"] {
+      display: none;
+    }
+
+    .result-actions {
+      margin-top: 12px;
+    }
+
+    .filter-btn {
+      padding: 8px 12px;
+      font-size: 0.88rem;
+      background: var(--panel-2);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .filter-btn.active {
+      background: rgba(79, 140, 255, 0.18);
+      color: #cfe0ff;
+      border-color: rgba(79, 140, 255, 0.35);
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .toolbar-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .progress {
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .progress.active { display: block; }
+
+    .progress-bar {
+      height: 10px;
+      background: var(--panel-2);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .progress-bar > span {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      transition: width 0.25s ease;
+    }
+
+    .status-banner {
+      display: none;
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+    }
+
+    .status-banner.show { display: block; }
+    .status-banner.done { border-color: rgba(61, 220, 132, 0.35); color: #c9f7da; }
+    .status-banner.error { border-color: rgba(255, 107, 107, 0.35); color: #ffd2d2; }
+    .status-banner.warn { border-color: rgba(240, 180, 41, 0.35); color: #ffe8a3; }
+
+    .results {
+      display: grid;
+      gap: 14px;
+      max-height: 72vh;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .result {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      background: var(--panel);
+    }
+
+    .result.hidden { display: none; }
+
+    .result-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 10px;
+    }
+
+    .result-head h3 {
+      margin: 0;
+      font-size: 1rem;
+      word-break: break-all;
+    }
+
+    .badge {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 6px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .badge.ok { background: rgba(61, 220, 132, 0.15); color: var(--ok); }
+    .badge.empty { background: rgba(240, 180, 41, 0.15); color: var(--warn); }
+    .badge.error { background: rgba(255, 107, 107, 0.15); color: var(--danger); }
+
+    .section-title {
+      margin: 12px 0 6px;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+
+    .links, .emails {
+      margin: 0;
+      padding-left: 18px;
+      color: #d7e2f1;
+    }
+
+    .links li, .emails li { margin: 4px 0; word-break: break-all; }
+
+    .notice { color: var(--warn); margin: 0; }
+    .error-text { color: #ffb4b4; margin: 0; }
+
+    .empty-state {
+      color: var(--muted);
+      text-align: center;
+      padding: 40px 12px;
+    }
+
+    a { color: #9ec5ff; }
+
+    .data-filter-panel {
+      display: none;
+      margin-bottom: 14px;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+    }
+
+    .data-filter-panel.show { display: block; }
+
+    .chip-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--muted);
+      font-size: 0.86rem;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .chip input { accent-color: var(--accent); }
+
+    .chip.active {
+      color: #cfe0ff;
+      border-color: rgba(79, 140, 255, 0.35);
+      background: rgba(79, 140, 255, 0.12);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>RSS-ArchiveORG</h1>
+      <p>
+        Extrae redes sociales y correos corporativos desde snapshots de
+        <a href="https://web.archive.org/" target="_blank" rel="nofollow noopener noreferrer">archive.org</a>.
+        Añade entre 1 y 200 URLs, configura la espera entre peticiones y lanza el lote.
+      </p>
+    </header>
+
+    <div class="grid">
+      <section class="card">
+        <label for="urls">URLs (una por línea)</label>
+        <textarea id="urls" placeholder="omicshealth.es&#10;https://otra-web.es"></textarea>
+        <p class="hint" id="url-count">0 URLs · máximo 200</p>
+
+        <div class="controls">
+          <div>
+            <label for="delay">Espera entre peticiones: <span id="delay-value">5</span>s</label>
+            <div class="row">
+              <input id="delay" type="range" min="3" max="30" step="0.5" value="5">
+              <span class="pill">Mínimo recomendado: 3s</span>
+            </div>
+          </div>
+
+          <div>
+            <label for="timestamp">Snapshot preferido (opcional)</label>
+            <input id="timestamp" type="text" placeholder="YYYYMMDD o YYYYMMDDhhmmss, ej. 20200101">
+            <p class="hint">Si se indica, archive.org devolverá el snapshot más cercano a esa fecha.</p>
+          </div>
+
+          <div class="proxy-panel">
+            <label class="checkbox">
+              <input id="use-proxies" type="checkbox">
+              <span>Usar rotación de proxys</span>
+            </label>
+
+            <div class="proxy-inputs" id="proxy-inputs" hidden>
+              <div>
+                <label for="proxies">Proxys (copiar y pegar, uno por línea)</label>
+                <textarea id="proxies" placeholder="203.0.113.10:8080:usuario:contraseña&#10;203.0.113.11:8080:usuario:contraseña"></textarea>
+                <p class="hint" id="proxy-count">0 proxys</p>
+              </div>
+
+              <div class="row">
+                <label class="file-btn secondary small" for="proxies-file">
+                  Subir archivo .txt
+                </label>
+                <input id="proxies-file" type="file" accept=".txt,text/plain">
+                <span class="hint" id="proxy-file-name"></span>
+              </div>
+
+              <p class="hint" id="proxy-hint">
+                Formato por línea: <code>host:port</code> o <code>host:port:usuario:contraseña</code>.
+              </p>
+            </div>
+          </div>
+
+          <div class="row">
+            <button id="submit" class="primary" type="button">Enviar petición</button>
+            <button id="cancel" class="danger" type="button" hidden>Cancelar</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="toolbar">
+          <div class="toolbar-group" id="filters" hidden>
+            <span class="hint" style="margin:0">Filtrar:</span>
+            <button class="filter-btn active" data-filter="all" type="button">Todos</button>
+            <button class="filter-btn" data-filter="ok" type="button">Con datos</button>
+            <button class="filter-btn" data-filter="empty" type="button">Sin datos</button>
+            <button class="filter-btn" data-filter="error" type="button">Errores</button>
+          </div>
+          <div class="toolbar-group">
+            <button id="retry-all" class="secondary small" type="button" hidden>Reintentar fallos</button>
+            <button id="export-json" class="secondary" type="button" disabled>Exportar JSON</button>
+            <button id="export-csv" class="secondary" type="button" disabled>Exportar CSV</button>
+          </div>
+        </div>
+
+        <div class="data-filter-panel" id="data-filter-panel">
+          <strong>Mostrar sitios con:</strong>
+          <p class="hint">Si no marcas nada, se muestran todos los que tienen algún dato. Si marcas opciones, el sitio debe tener al menos una.</p>
+          <div class="chip-grid" id="social-chips"></div>
+          <div class="chip-grid" id="email-chips">
+            <label class="chip" data-criterion="corporate_email">
+              <input type="checkbox" value="corporate_email">
+              Correo corporativo
+            </label>
+            <label class="chip" data-criterion="any_email">
+              <input type="checkbox" value="any_email">
+              Cualquier correo
+            </label>
+          </div>
+        </div>
+
+        <div class="progress" id="progress">
+          <strong id="progress-label">Procesando…</strong>
+          <div class="progress-bar"><span id="progress-bar"></span></div>
+        </div>
+
+        <div class="status-banner" id="status-banner"></div>
+
+        <div class="results" id="results">
+          <div class="empty-state">Los resultados aparecerán aquí en tiempo real.</div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const urlsInput = document.getElementById("urls");
+    const urlCount = document.getElementById("url-count");
+    const delayInput = document.getElementById("delay");
+    const delayValue = document.getElementById("delay-value");
+    const timestampInput = document.getElementById("timestamp");
+    const useProxiesInput = document.getElementById("use-proxies");
+    const proxyInputs = document.getElementById("proxy-inputs");
+    const proxiesInput = document.getElementById("proxies");
+    const proxiesFileInput = document.getElementById("proxies-file");
+    const proxyCount = document.getElementById("proxy-count");
+    const proxyFileName = document.getElementById("proxy-file-name");
+    const proxyHint = document.getElementById("proxy-hint");
+    const submitBtn = document.getElementById("submit");
+    const cancelBtn = document.getElementById("cancel");
+    const resultsEl = document.getElementById("results");
+    const progressEl = document.getElementById("progress");
+    const progressLabel = document.getElementById("progress-label");
+    const progressBar = document.getElementById("progress-bar");
+    const statusBanner = document.getElementById("status-banner");
+    const filtersEl = document.getElementById("filters");
+    const dataFilterPanel = document.getElementById("data-filter-panel");
+    const socialChipsEl = document.getElementById("social-chips");
+    const emailChipsEl = document.getElementById("email-chips");
+    const exportJsonBtn = document.getElementById("export-json");
+    const exportCsvBtn = document.getElementById("export-csv");
+    const retryAllBtn = document.getElementById("retry-all");
+
+    let running = false;
+    let abortController = null;
+    let activeFilter = "all";
+    let collectedResults = [];
+    let proxiesFileAvailable = false;
+    let primarySocialFilters = [];
+    let resultIndexBySite = new Map();
+
+    function countUrls(text) {
+      return text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#")).length;
+    }
+
+    function countProxies(text) {
+      return text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#")).length;
+    }
+
+    function updateProxyCount() {
+      const count = countProxies(proxiesInput.value);
+      proxyCount.textContent = `${count} proxy${count === 1 ? "" : "s"}`;
+    }
+
+    function updateProxyPanel() {
+      const enabled = useProxiesInput.checked;
+      proxyInputs.hidden = !enabled;
+      useProxiesInput.disabled = running;
+      proxiesInput.disabled = running || !enabled;
+      proxiesFileInput.disabled = running || !enabled;
+      updateProxyCount();
+    }
+
+    function updateUrlCount() {
+      const count = countUrls(urlsInput.value);
+      urlCount.textContent = `${count} URL${count === 1 ? "" : "s"} · máximo 200`;
+      urlCount.style.color = count > 200 ? "#ffb4b4" : "";
+    }
+
+    function setRunning(active) {
+      running = active;
+      submitBtn.disabled = active;
+      cancelBtn.hidden = !active;
+      urlsInput.disabled = active;
+      delayInput.disabled = active;
+      timestampInput.disabled = active;
+      updateProxyPanel();
+      progressEl.classList.toggle("active", active);
+    }
+
+    function updateExportButtons() {
+      const hasResults = collectedResults.length > 0;
+      exportJsonBtn.disabled = !hasResults;
+      exportCsvBtn.disabled = !hasResults;
+      filtersEl.hidden = !hasResults;
+      updateRetryAllButton();
+    }
+
+    function updateRetryAllButton() {
+      const hasErrors = collectedResults.some((result) => result.status === "error");
+      retryAllBtn.hidden = !hasErrors;
+      retryAllBtn.disabled = running || !hasErrors;
+    }
+
+    function getFailedSites() {
+      return collectedResults.filter((result) => result.status === "error").map((result) => result.site);
+    }
+
+    function showBanner(message, kind) {
+      statusBanner.textContent = message;
+      statusBanner.className = `status-banner show ${kind || ""}`;
+    }
+
+    function clearResults() {
+      collectedResults = [];
+      resultIndexBySite = new Map();
+      resultsEl.innerHTML = "";
+      updateExportButtons();
+    }
+
+    function warningText(code) {
+      if (code === "no_rrss") return "No se encontraron redes sociales.";
+      if (code === "no_email") return "No se encontró correo electrónico.";
+      return code;
+    }
+
+    function getSelectedDataCriteria() {
+      const networks = Array.from(socialChipsEl.querySelectorAll("input:checked")).map((el) => el.value);
+      const wantCorporate = emailChipsEl.querySelector('input[value="corporate_email"]').checked;
+      const wantAnyEmail = emailChipsEl.querySelector('input[value="any_email"]').checked;
+      return { networks, wantCorporate, wantAnyEmail };
+    }
+
+    function hasDataCriteriaSelection(criteria) {
+      return criteria.networks.length > 0 || criteria.wantCorporate || criteria.wantAnyEmail;
+    }
+
+    function resultMatchesDataCriteria(data, criteria) {
+      if (data.status !== "ok") return false;
+      if (!hasDataCriteriaSelection(criteria)) return true;
+
+      const checks = [];
+      if (criteria.networks.length) {
+        checks.push(criteria.networks.some((network) => (data.social || {})[network]?.length));
+      }
+      if (criteria.wantCorporate) {
+        checks.push((data.corporate_emails || []).length > 0);
+      }
+      if (criteria.wantAnyEmail) {
+        checks.push((data.all_emails || []).length > 0);
+      }
+      return checks.some(Boolean);
+    }
+
+    function resultIsVisible(data) {
+      if (activeFilter === "all") return true;
+      if (activeFilter === "ok") {
+        return resultMatchesDataCriteria(data, getSelectedDataCriteria());
+      }
+      return data.status === activeFilter;
+    }
+
+    function applyFilters() {
+      document.querySelectorAll(".result").forEach((card) => {
+        const data = resultIndexBySite.get(card.dataset.site);
+        card.classList.toggle("hidden", !data || !resultIsVisible(data));
+      });
+    }
+
+    function updateDataFilterPanel() {
+      dataFilterPanel.classList.toggle("show", activeFilter === "ok");
+    }
+
+    function syncChipStyles(container) {
+      container.querySelectorAll(".chip").forEach((chip) => {
+        const input = chip.querySelector("input");
+        chip.classList.toggle("active", Boolean(input?.checked));
+      });
+    }
+
+    function buildSocialChips(filters) {
+      socialChipsEl.innerHTML = filters.map((filter) => `
+        <label class="chip" data-criterion="${escapeAttr(filter.id)}">
+          <input type="checkbox" value="${escapeAttr(filter.id)}">
+          ${escapeHtml(filter.label)}
+        </label>
+      `).join("");
+    }
+
+    function removeResultCard(site) {
+      const card = resultsEl.querySelector(`.result[data-site="${cssEscape(site)}"]`);
+      if (card) card.remove();
+    }
+
+    function cssEscape(value) {
+      if (window.CSS && typeof CSS.escape === "function") {
+        return CSS.escape(value);
+      }
+      return String(value).replaceAll('"', '\\"');
+    }
+
+    function upsertResult(data) {
+      const existingIndex = collectedResults.findIndex((result) => result.site === data.site);
+      if (existingIndex >= 0) {
+        collectedResults[existingIndex] = data;
+      } else {
+        collectedResults.push(data);
+      }
+      resultIndexBySite.set(data.site, data);
+      removeResultCard(data.site);
+      renderResult(data);
+      updateExportButtons();
+    }
+
+    function renderResult(data) {
+      const card = document.createElement("article");
+      card.className = "result";
+      card.dataset.status = data.status;
+      card.dataset.site = data.site;
+      resultIndexBySite.set(data.site, data);
+
+      const statusLabel = data.status === "ok" ? "Con datos" : data.status === "empty" ? "Sin datos" : "Error";
+      let body = "";
+
+      if (data.error) {
+        body += `<p class="error-text">${escapeHtml(data.error)}</p>`;
+        body += `<div class="result-actions"><button class="secondary small retry-one" type="button" data-site="${escapeAttr(data.site)}">Reintentar</button></div>`;
+      }
+
+      if (data.warnings && data.warnings.length) {
+        body += `<ul class="notice">${data.warnings.map((w) => `<li>${escapeHtml(warningText(w))}</li>`).join("")}</ul>`;
+      }
+
+      const socialEntries = Object.entries(data.social || {});
+      if (socialEntries.length) {
+        body += `<div class="section-title">Redes sociales</div>`;
+        for (const [network, links] of socialEntries) {
+          body += `<div><strong>${escapeHtml(network)}</strong><ul class="links">${links.map((link) => `<li><a href="${escapeAttr(link)}" target="_blank" rel="nofollow noopener noreferrer">${escapeHtml(link)}</a></li>`).join("")}</ul></div>`;
+        }
+      }
+
+      if (data.corporate_emails && data.corporate_emails.length) {
+        body += `<div class="section-title">Correos corporativos</div><ul class="emails">${data.corporate_emails.map((email) => `<li>${escapeHtml(email)}</li>`).join("")}</ul>`;
+      }
+
+      if (data.all_emails && data.all_emails.length) {
+        body += `<div class="section-title">Otros correos detectados</div><ul class="emails">${data.all_emails.map((email) => `<li>${escapeHtml(email)}</li>`).join("")}</ul>`;
+      }
+
+      if (data.snapshot) {
+        body += `<p class="hint">Snapshot: ${escapeHtml(data.snapshot.timestamp)} · <a href="${escapeAttr(data.snapshot.url)}" target="_blank" rel="nofollow noopener noreferrer">ver en archive.org</a></p>`;
+      }
+
+      card.innerHTML = `
+        <div class="result-head">
+          <h3>${escapeHtml(data.site)}</h3>
+          <span class="badge ${data.status}">${statusLabel}</span>
+        </div>
+        ${body}
+      `;
+
+      resultsEl.prepend(card);
+      applyFilters();
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value).replaceAll("'", "&#39;");
+    }
+
+    async function loadConfig() {
+      const response = await fetch("/api/config");
+      const config = await response.json();
+      delayInput.min = String(config.min_delay);
+      delayInput.value = String(config.default_delay);
+      delayValue.textContent = String(config.default_delay);
+      proxiesFileAvailable = config.proxies_file_available;
+      primarySocialFilters = config.primary_social_filters || [];
+      buildSocialChips(primarySocialFilters);
+      proxyHint.textContent = proxiesFileAvailable
+        ? "Pega proxys manualmente, sube un .txt o deja vacío para usar proxies.txt del servidor."
+        : "Pega proxys manualmente o sube un archivo .txt (formato host:port:user:pass).";
+      updateProxyPanel();
+    }
+
+    function validateTimestamp(value) {
+      const cleaned = value.trim();
+      if (!cleaned) return null;
+      if (!/^\d{8}(\d{6})?$/.test(cleaned)) {
+        return "El timestamp debe tener formato YYYYMMDD o YYYYMMDDhhmmss";
+      }
+      return null;
+    }
+
+    function buildPayload(urlsText) {
+      return {
+        urls_text: urlsText,
+        delay: Number(delayInput.value),
+        use_proxies: useProxiesInput.checked,
+        proxies_text: useProxiesInput.checked ? proxiesInput.value : null,
+        timestamp: timestampInput.value.trim() || null,
+      };
+    }
+
+    async function processExtraction(payload, { replace = false, showStartBanner = true } = {}) {
+      if (running) return false;
+
+      setRunning(true);
+      progressBar.style.width = "0%";
+      progressLabel.textContent = replace ? "Reintentando…" : "Iniciando…";
+      if (showStartBanner && !replace) {
+        showBanner("", "");
+        statusBanner.className = "status-banner";
+      }
+
+      abortController = new AbortController();
+
+      let response;
+      try {
+        response = await fetch("/api/extract", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: abortController.signal,
+        });
+      } catch (error) {
+        if (error.name === "AbortError") {
+          showBanner("Cancelando petición…", "warn");
+        } else {
+          showBanner("No se pudo conectar con el servidor.", "error");
+        }
+        setRunning(false);
+        abortController = null;
+        return false;
+      }
+
+      if (!response.ok) {
+        let message = "No se pudo iniciar la petición.";
+        try {
+          const body = await response.json();
+          if (body.detail) message = body.detail;
+        } catch (_) {}
+        showBanner(message, "error");
+        setRunning(false);
+        abortController = null;
+        return false;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          let boundary = buffer.indexOf("\n\n");
+          while (boundary !== -1) {
+            const chunk = buffer.slice(0, boundary);
+            buffer = buffer.slice(boundary + 2);
+            const line = chunk.split("\n").find((entry) => entry.startsWith("data: "));
+            if (line) {
+              handleEvent(JSON.parse(line.slice(6)), { replace });
+            }
+            boundary = buffer.indexOf("\n\n");
+          }
+        }
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          showBanner("Se perdió la conexión con el servidor.", "error");
+        }
+      }
+
+      setRunning(false);
+      abortController = null;
+      return true;
+    }
+
+    async function submitJob() {
+      const count = countUrls(urlsInput.value);
+      if (count < 1) {
+        showBanner("Añade al menos una URL.", "error");
+        return;
+      }
+      if (count > 200) {
+        showBanner("El máximo es 200 URLs por petición.", "error");
+        return;
+      }
+
+      const timestampError = validateTimestamp(timestampInput.value);
+      if (timestampError) {
+        showBanner(timestampError, "error");
+        return;
+      }
+
+      if (
+        useProxiesInput.checked
+        && countProxies(proxiesInput.value) < 1
+        && !proxiesFileAvailable
+      ) {
+        showBanner("Pega al menos un proxy o sube un archivo .txt.", "error");
+        return;
+      }
+
+      clearResults();
+      await processExtraction(buildPayload(urlsInput.value));
+    }
+
+    async function retrySites(sites) {
+      if (!sites.length) return;
+      if (running) return;
+
+      const timestampError = validateTimestamp(timestampInput.value);
+      if (timestampError) {
+        showBanner(timestampError, "error");
+        return;
+      }
+
+      const label = sites.length === 1 ? "sitio" : "sitios";
+      showBanner(`Reintentando ${sites.length} ${label}…`, "warn");
+      await processExtraction(buildPayload(sites.join("\n")), { replace: true, showStartBanner: false });
+    }
+
+    function handleEvent(payload, { replace = false } = {}) {
+      if (payload.type === "result") {
+        if (replace) {
+          upsertResult(payload);
+        } else {
+          collectedResults.push(payload);
+          renderResult(payload);
+          updateExportButtons();
+        }
+        const pct = Math.round((payload.index / payload.total) * 100);
+        progressBar.style.width = `${pct}%`;
+        progressLabel.textContent = replace
+          ? `Reintentando ${payload.index} de ${payload.total}`
+          : `Procesando ${payload.index} de ${payload.total}`;
+        return;
+      }
+
+      if (payload.type === "done") {
+        progressBar.style.width = "100%";
+        progressLabel.textContent = replace ? "Reintento completado" : "Completado";
+        const prefix = replace ? "✅ Reintento completado." : `✅ ${payload.message}.`;
+        showBanner(`${prefix} ${payload.total} sitio(s) procesados.`, "done");
+        return;
+      }
+
+      if (payload.type === "cancelled") {
+        progressLabel.textContent = "Cancelado";
+        showBanner(`⏹ ${payload.message}. ${payload.processed} de ${payload.total} sitio(s) procesados.`, "warn");
+        return;
+      }
+
+      if (payload.type === "fatal") {
+        showBanner(`Error fatal: ${payload.message}`, "error");
+      }
+    }
+
+    async function exportResults(format) {
+      if (!collectedResults.length) return;
+
+      const response = await fetch("/api/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ results: collectedResults, format }),
+      });
+
+      if (!response.ok) {
+        showBanner("No se pudo exportar los resultados.", "error");
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = format === "json" ? "rss-archiveorg-results.json" : "rss-archiveorg-results.csv";
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    urlsInput.addEventListener("input", updateUrlCount);
+    useProxiesInput.addEventListener("change", updateProxyPanel);
+    proxiesInput.addEventListener("input", updateProxyCount);
+    proxiesFileInput.addEventListener("change", async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        proxiesInput.value = await file.text();
+        proxyFileName.textContent = file.name;
+        updateProxyCount();
+        if (!useProxiesInput.checked) {
+          useProxiesInput.checked = true;
+          updateProxyPanel();
+        }
+      } catch (_) {
+        showBanner("No se pudo leer el archivo de proxys.", "error");
+      }
+    });
+    delayInput.addEventListener("input", () => {
+      delayValue.textContent = delayInput.value;
+    });
+    submitBtn.addEventListener("click", submitJob);
+    cancelBtn.addEventListener("click", () => {
+      if (abortController) abortController.abort();
+    });
+    retryAllBtn.addEventListener("click", () => retrySites(getFailedSites()));
+    resultsEl.addEventListener("click", (event) => {
+      const button = event.target.closest(".retry-one");
+      if (!button || running) return;
+      retrySites([button.dataset.site]);
+    });
+    exportJsonBtn.addEventListener("click", () => exportResults("json"));
+    exportCsvBtn.addEventListener("click", () => exportResults("csv"));
+
+    filtersEl.addEventListener("click", (event) => {
+      const button = event.target.closest(".filter-btn");
+      if (!button) return;
+      activeFilter = button.dataset.filter;
+      filtersEl.querySelectorAll(".filter-btn").forEach((item) => {
+        item.classList.toggle("active", item === button);
+      });
+      updateDataFilterPanel();
+      applyFilters();
+    });
+
+    dataFilterPanel.addEventListener("change", (event) => {
+      if (!(event.target instanceof HTMLInputElement)) return;
+      syncChipStyles(socialChipsEl);
+      syncChipStyles(emailChipsEl);
+      if (activeFilter === "ok") applyFilters();
+    });
+
+    loadConfig().then(updateUrlCount);
+  </script>
+</body>
+</html>
