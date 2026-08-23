@@ -1,0 +1,4 @@
+{
+  "name": "RSS-ArchiveORG",
+  "install": "./.cursor/install.sh"
+}
