@@ -103,6 +103,19 @@
       resize: vertical;
     }
 
+    textarea.proxies-input {
+      min-height: 120px;
+    }
+
+    .proxies-panel {
+      display: none;
+      margin-top: 4px;
+    }
+
+    .proxies-panel.show {
+      display: block;
+    }
+
     textarea:focus, input[type="text"]:focus {
       outline: 2px solid rgba(79, 140, 255, 0.35);
       border-color: rgba(79, 140, 255, 0.5);
@@ -461,8 +474,22 @@
 
           <label class="checkbox">
             <input id="use-proxies" type="checkbox">
-            <span>Usar proxys rotativos (<code>proxies.txt</code>)</span>
+            <span>Usar proxys rotativos</span>
           </label>
+
+          <div class="proxies-panel" id="proxies-panel">
+            <label for="proxies">Proxys (uno por línea)</label>
+            <textarea
+              id="proxies"
+              class="proxies-input"
+              placeholder="203.0.113.10:8080:usuario:contraseña&#10;203.0.113.11:8080:usuario:contraseña"
+            ></textarea>
+            <p class="hint" id="proxy-count">0 proxys</p>
+            <p class="hint">
+              Formato: <code>host:puerto</code> o <code>host:puerto:usuario:contraseña</code>.
+              Si dejas este campo vacío, se usará <code>proxies.txt</code> del servidor (si existe).
+            </p>
+          </div>
           <p class="hint" id="proxy-hint"></p>
 
           <div class="row">
@@ -537,10 +564,9 @@ python -m rss_archiveorg.web</pre>
           para repartir el tráfico y rotar automáticamente ante bloqueos o fallos temporales.
         </p>
         <ol>
-          <li>Copia la plantilla: <code>cp proxies.example.txt proxies.txt</code></li>
-          <li>Añade tus proxys, uno por línea: <code>host:puerto</code> o <code>host:puerto:usuario:contraseña</code></li>
-          <li>Protege el archivo: <code>chmod 600 proxies.txt</code> (nunca lo subas a git)</li>
-          <li>Reinicia el servidor web y marca <strong>Usar proxys rotativos</strong></li>
+          <li>Marca <strong>Usar proxys rotativos</strong> en el formulario</li>
+          <li>Pega tus proxys en el cuadro de texto, uno por línea: <code>host:puerto</code> o <code>host:puerto:usuario:contraseña</code></li>
+          <li>Opcional en localhost: crea <code>proxies.txt</code> desde <code>proxies.example.txt</code> si prefieres un archivo en el servidor</li>
         </ol>
         <p>Comportamiento con proxys activos:</p>
         <ul>
@@ -564,6 +590,9 @@ python -m rss_archiveorg.web</pre>
     const delayValue = document.getElementById("delay-value");
     const timestampInput = document.getElementById("timestamp");
     const useProxiesInput = document.getElementById("use-proxies");
+    const proxiesPanel = document.getElementById("proxies-panel");
+    const proxiesInput = document.getElementById("proxies");
+    const proxyCount = document.getElementById("proxy-count");
     const proxyHint = document.getElementById("proxy-hint");
     const submitBtn = document.getElementById("submit");
     const cancelBtn = document.getElementById("cancel");
@@ -588,11 +617,29 @@ python -m rss_archiveorg.web</pre>
     let primarySocialFilters = [];
     let resultIndexBySite = new Map();
 
+    function countProxies(text) {
+      return text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#")).length;
+    }
+
     function countUrls(text) {
       return text
         .split("\n")
         .map((line) => line.trim())
         .filter((line) => line && !line.startsWith("#")).length;
+    }
+
+    function updateProxyCount() {
+      const count = countProxies(proxiesInput.value);
+      proxyCount.textContent = `${count} proxy${count === 1 ? "" : "s"}`;
+      proxyCount.style.color = useProxiesInput.checked && count === 0 && !proxiesAvailable ? "#ffe8a3" : "";
+    }
+
+    function updateProxiesPanel() {
+      proxiesPanel.classList.toggle("show", useProxiesInput.checked);
+      updateProxyCount();
     }
 
     function updateUrlCount() {
@@ -608,7 +655,8 @@ python -m rss_archiveorg.web</pre>
       urlsInput.disabled = active;
       delayInput.disabled = active;
       timestampInput.disabled = active;
-      useProxiesInput.disabled = active || !proxiesAvailable;
+      useProxiesInput.disabled = active;
+      proxiesInput.disabled = active;
       progressEl.classList.toggle("active", active);
     }
 
@@ -810,13 +858,12 @@ python -m rss_archiveorg.web</pre>
       buildSocialChips(primarySocialFilters);
       if (proxiesAvailable) {
         const count = config.proxies_count || 0;
-        proxyHint.textContent = `${count} proxy(s) cargados desde proxies.txt. Se rotan entre sitios y ante errores 429/5xx.`;
+        proxyHint.textContent = `${count} proxy(s) en proxies.txt del servidor. Puedes pegar otros en el formulario.`;
       } else if (config.proxies_file_exists) {
-        proxyHint.textContent = "Existe proxies.txt pero no tiene proxys válidos. Revisa el formato.";
+        proxyHint.textContent = "Existe proxies.txt pero no tiene proxys válidos. Pega la lista en el formulario.";
       } else {
-        proxyHint.textContent = "No hay proxies.txt. Copia proxies.example.txt para activar rotación en localhost.";
+        proxyHint.textContent = "Pega tus proxys en el formulario o crea proxies.txt en localhost.";
       }
-      useProxiesInput.disabled = !proxiesAvailable;
     }
 
     function validateTimestamp(value) {
@@ -829,12 +876,16 @@ python -m rss_archiveorg.web</pre>
     }
 
     function buildPayload(urlsText) {
-      return {
+      const payload = {
         urls_text: urlsText,
         delay: Number(delayInput.value),
         use_proxies: useProxiesInput.checked,
         timestamp: timestampInput.value.trim() || null,
       };
+      if (useProxiesInput.checked && proxiesInput.value.trim()) {
+        payload.proxies_text = proxiesInput.value;
+      }
+      return payload;
     }
 
     async function processExtraction(payload, { replace = false, showStartBanner = true } = {}) {
@@ -930,6 +981,14 @@ python -m rss_archiveorg.web</pre>
         return;
       }
 
+      if (useProxiesInput.checked) {
+        const inlineCount = countProxies(proxiesInput.value);
+        if (inlineCount === 0 && !proxiesAvailable) {
+          showBanner("Pega al menos un proxy o configura proxies.txt en el servidor.", "error");
+          return;
+        }
+      }
+
       clearResults();
       await processExtraction(buildPayload(urlsInput.value));
     }
@@ -1009,6 +1068,8 @@ python -m rss_archiveorg.web</pre>
     }
 
     urlsInput.addEventListener("input", updateUrlCount);
+    proxiesInput.addEventListener("input", updateProxyCount);
+    useProxiesInput.addEventListener("change", updateProxiesPanel);
     delayInput.addEventListener("input", () => {
       delayValue.textContent = delayInput.value;
     });
@@ -1043,7 +1104,10 @@ python -m rss_archiveorg.web</pre>
       if (activeFilter === "ok") applyFilters();
     });
 
-    loadConfig().then(updateUrlCount);
+    loadConfig().then(() => {
+      updateUrlCount();
+      updateProxiesPanel();
+    });
   </script>
 </body>
 </html>

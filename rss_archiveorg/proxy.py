@@ -105,18 +105,23 @@ def _warn_if_world_readable(path: Path) -> None:
         )
 
 
-def load_proxies(path: Path) -> list[Proxy]:
-    """Load proxies from a newline-delimited text file."""
-    _warn_if_world_readable(path)
+def parse_proxies_text(text: str, *, source: str = "proxies") -> list[Proxy]:
+    """Load proxies from newline-delimited text (same format as the file)."""
     proxies: list[Proxy] = []
-    for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+    for line_no, line in enumerate(text.splitlines(), start=1):
         try:
             proxy = Proxy.parse(line)
         except ValueError as exc:
-            raise ValueError(f"{path}:{line_no}: {exc}") from exc
+            raise ValueError(f"{source}:{line_no}: {exc}") from exc
         if proxy is not None:
             proxies.append(proxy)
     return proxies
+
+
+def load_proxies(path: Path) -> list[Proxy]:
+    """Load proxies from a newline-delimited text file."""
+    _warn_if_world_readable(path)
+    return parse_proxies_text(path.read_text(encoding="utf-8"), source=str(path))
 
 
 class ProxyPool:

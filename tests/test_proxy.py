@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from rss_archiveorg.proxy import Proxy, ProxyPool, load_proxies
+from rss_archiveorg.proxy import Proxy, ProxyPool, load_proxies, parse_proxies_text
 
 
 def test_proxy_parse_with_auth():
@@ -75,6 +75,18 @@ def test_load_proxies_reports_line_number(tmp_path: Path):
     path.write_text("bad-line\n", encoding="utf-8")
     with pytest.raises(ValueError, match=r":1:"):
         load_proxies(path)
+
+
+def test_parse_proxies_text_skips_comments_and_blanks():
+    text = "# comment\n\n203.0.113.10:8080:user:pass\n"
+    proxies = parse_proxies_text(text)
+    assert len(proxies) == 1
+    assert proxies[0].host == "203.0.113.10"
+
+
+def test_parse_proxies_text_reports_line_number():
+    with pytest.raises(ValueError, match=r"proxies:2:"):
+        parse_proxies_text("203.0.113.10:8080\nbad-line\n")
 
 
 def test_proxy_pool_rotates_round_robin():
