@@ -31,7 +31,7 @@ class SiteResult:
 
     @property
     def has_emails(self) -> bool:
-        return bool(self.corporate_emails or self.all_emails)
+        return bool(self.corporate_emails)
 
     def warnings(self) -> list[str]:
         """Human-readable notices for missing data on successful fetches."""

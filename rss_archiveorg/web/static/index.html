@@ -528,9 +528,9 @@
           <div class="chip-grid" id="email-chips">
             <label class="chip" data-criterion="corporate_email">
               <input type="checkbox" value="corporate_email">
-              Correo corporativo
+              Correo del dominio
             </label>
-            <label class="chip" data-criterion="any_email">
+            <label class="chip" data-criterion="any_email" hidden>
               <input type="checkbox" value="any_email">
               Cualquier correo
             </label>
@@ -826,11 +826,7 @@ python -m rss_archiveorg.web</pre>
       }
 
       if (data.corporate_emails && data.corporate_emails.length) {
-        body += `<div class="section-title">Correos corporativos</div><ul class="emails">${data.corporate_emails.map((email) => `<li>${escapeHtml(email)}</li>`).join("")}</ul>`;
-      }
-
-      if (data.all_emails && data.all_emails.length) {
-        body += `<div class="section-title">Otros correos detectados</div><ul class="emails">${data.all_emails.map((email) => `<li>${escapeHtml(email)}</li>`).join("")}</ul>`;
+        body += `<div class="section-title">Correos del dominio</div><ul class="emails">${data.corporate_emails.map((email) => `<li>${escapeHtml(email)}</li>`).join("")}</ul>`;
       }
 
       if (data.snapshot) {

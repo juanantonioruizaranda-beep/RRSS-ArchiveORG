@@ -53,9 +53,14 @@ def email_matches_domain(email: str, site_domain: str) -> bool:
         return False
 
     email_domain = email.rsplit("@", 1)[1].lower()
-    site_domain = site_domain.lower()
+    site_domain = site_domain.lower().strip()
+    if not site_domain:
+        return False
 
     if email_domain in FREE_EMAIL_DOMAINS:
         return False
 
-    return email_domain == site_domain or email_domain.endswith(f".{site_domain}")
+    if email_domain == site_domain:
+        return True
+
+    return email_domain.endswith(f".{site_domain}")

@@ -9,12 +9,17 @@ from bs4 import BeautifulSoup
 
 from rss_archiveorg.utils import email_matches_domain
 
-EMAIL_PATTERN = re.compile(
-    r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}",
+EMAIL_CORE = (
+    r"[a-zA-Z0-9][a-zA-Z0-9._%+\-]*@"
+    r"[a-zA-Z0-9](?:[a-zA-Z0-9.\-]*[a-zA-Z0-9])?\.[a-zA-Z]{2,}"
+)
+EMAIL_PATTERN = re.compile(EMAIL_CORE, re.I)
+EMAIL_BOUNDED_PATTERN = re.compile(
+    rf"(?<![A-Za-z0-9._%+\-]){EMAIL_CORE}(?![A-Za-z0-9._%+\-])",
     re.I,
 )
 OBFUSCATED_AT_PATTERN = re.compile(
-    r"([a-zA-Z0-9._%+\-]+)\s*(?:\[?\s*(?:at|@|\(at\)|&#64;|&commat;)\s*\]?)\s*"
+    r"([a-zA-Z0-9._%+\-]+)\s*(?:\[?\s*(?:at|\(at\)|&#64;|&commat;)\s*\]?)\s*"
     r"([a-zA-Z0-9.\-]+)\s*(?:\[?\s*(?:dot|\.|\(dot\)|&#46;|&period;)\s*\]?)\s*"
     r"([a-zA-Z]{2,})",
     re.I,
@@ -34,6 +39,20 @@ def _normalize_email(raw: str) -> str | None:
 
     if not EMAIL_PATTERN.fullmatch(email):
         return None
+
+    local, _, domain = email.partition("@")
+    if (
+        not local
+        or not domain
+        or ".." in email
+        or local.startswith(".")
+        or local.endswith(".")
+        or domain.startswith(".")
+        or domain.endswith(".")
+        or ".." in domain
+    ):
+        return None
+
     return email
 
 
@@ -53,7 +72,7 @@ def _extract_from_text(text: str) -> set[str]:
     emails: set[str] = set()
     decoded = _decode_text(text)
 
-    for match in EMAIL_PATTERN.findall(decoded):
+    for match in EMAIL_BOUNDED_PATTERN.findall(decoded):
         normalized = _normalize_email(match)
         if normalized:
             emails.add(normalized)
@@ -68,7 +87,10 @@ def _extract_from_text(text: str) -> set[str]:
 
 
 def extract_emails(html: str, site_domain: str) -> tuple[list[str], list[str]]:
-    """Return (corporate_emails, all_emails) found in page HTML."""
+    """Return (corporate_emails, all_emails) found in page HTML.
+
+    Only emails whose domain matches the searched site are returned.
+    """
     soup = BeautifulSoup(html, "lxml")
 
     for tag in soup.find_all(["script", "style", "noscript"]):
@@ -84,8 +106,8 @@ def extract_emails(html: str, site_domain: str) -> tuple[list[str], list[str]]:
             if value:
                 all_found.update(_extract_from_text(str(value)))
 
-    all_emails = sorted(all_found)
-    corporate_emails = sorted(
-        email for email in all_emails if email_matches_domain(email, site_domain)
+    domain_emails = sorted(
+        email for email in all_found if email_matches_domain(email, site_domain)
     )
-    return corporate_emails, all_emails
+    corporate_emails = domain_emails
+    return corporate_emails, domain_emails
