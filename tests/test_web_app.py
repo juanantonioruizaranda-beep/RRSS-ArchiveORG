@@ -39,6 +39,8 @@ def test_landing_includes_proxy_textarea():
     assert response.status_code == 200
     assert 'id="proxies"' in response.text
     assert "Proxys (uno por línea)" in response.text
+    assert 'id="progress-data-count"' in response.text
+    assert "resultados con datos encontrados" in response.text
 
 
 def test_extract_requires_proxies_when_enabled_without_source():

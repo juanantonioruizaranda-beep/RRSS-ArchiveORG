@@ -240,6 +240,12 @@
 
     .progress.active { display: block; }
 
+    .progress-data-count {
+      margin: 6px 0 10px;
+      color: var(--accent-2);
+      font-size: 0.95rem;
+    }
+
     .progress-bar {
       height: 10px;
       background: var(--panel-2);
@@ -533,6 +539,7 @@
 
         <div class="progress" id="progress">
           <strong id="progress-label">Procesando…</strong>
+          <p class="hint progress-data-count" id="progress-data-count">0 resultados con datos encontrados</p>
           <div class="progress-bar"><span id="progress-bar"></span></div>
         </div>
 
@@ -599,6 +606,7 @@ python -m rss_archiveorg.web</pre>
     const resultsEl = document.getElementById("results");
     const progressEl = document.getElementById("progress");
     const progressLabel = document.getElementById("progress-label");
+    const progressDataCount = document.getElementById("progress-data-count");
     const progressBar = document.getElementById("progress-bar");
     const statusBanner = document.getElementById("status-banner");
     const filtersEl = document.getElementById("filters");
@@ -648,6 +656,11 @@ python -m rss_archiveorg.web</pre>
       urlCount.style.color = count > 200 ? "#ffb4b4" : "";
     }
 
+    function updateProgressDataCount() {
+      const count = collectedResults.filter((result) => result.status === "ok").length;
+      progressDataCount.textContent = `${count} resultado${count === 1 ? "" : "s"} con datos encontrados`;
+    }
+
     function setRunning(active) {
       running = active;
       submitBtn.disabled = active;
@@ -687,6 +700,7 @@ python -m rss_archiveorg.web</pre>
       collectedResults = [];
       resultIndexBySite = new Map();
       resultsEl.innerHTML = "";
+      updateProgressDataCount();
       updateExportButtons();
     }
 
@@ -894,6 +908,9 @@ python -m rss_archiveorg.web</pre>
       setRunning(true);
       progressBar.style.width = "0%";
       progressLabel.textContent = replace ? "Reintentando…" : "Iniciando…";
+      if (!replace) {
+        updateProgressDataCount();
+      }
       if (showStartBanner && !replace) {
         showBanner("", "");
         statusBanner.className = "status-banner";
@@ -1022,6 +1039,7 @@ python -m rss_archiveorg.web</pre>
         progressLabel.textContent = replace
           ? `Reintentando ${payload.index} de ${payload.total}`
           : `Procesando ${payload.index} de ${payload.total}`;
+        updateProgressDataCount();
         return;
       }
 
